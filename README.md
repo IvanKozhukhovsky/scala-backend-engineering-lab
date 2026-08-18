@@ -84,7 +84,7 @@ This repository is already suitable to publish as a transparent **learning lab**
 
 ## Repository map
 
-See `docs/repository-architecture.md` for the full structure and the separation between learning state, source code, tests, Cursor configuration, and deterministic verification. Publication steps are in `docs/publish-to-github.md`, and honest resume wording is in `docs/resume-snippets.md`.
+See `docs/repository-architecture.md` for the full structure and the separation between learning state, source code, tests, Cursor configuration, and deterministic verification. Honest resume wording is in `docs/resume-snippets.md`.
 
 ## AI transparency
 

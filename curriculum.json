@@ -32,7 +32,7 @@
           "title": "Values, expressions and basic functions",
           "lessonStatus": "completed",
           "exerciseStatus": "completed",
-          "verificationStatus": "pending",
+          "verificationStatus": "verified",
           "evidence": [
             {
               "type": "source",
@@ -41,9 +41,13 @@
             {
               "type": "source",
               "path": "src/main/scala/day01/ExercisesDay01.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day01/Day01Suite.test.scala"
             }
           ],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/3"
         },
         {
           "id": "scala-002",
@@ -62,7 +66,7 @@
               "path": "src/main/scala/day02/ExercisesDay02.scala"
             }
           ],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/4"
         },
         {
           "id": "scala-003",
@@ -81,7 +85,7 @@
               "path": "src/main/scala/day03/ExercisesDay03.scala"
             }
           ],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/5"
         },
         {
           "id": "scala-004",
@@ -100,7 +104,7 @@
               "path": "src/main/scala/day04/ExercisesDay04.scala"
             }
           ],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/6"
         }
       ]
     },
