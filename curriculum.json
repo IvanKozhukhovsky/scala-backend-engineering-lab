@@ -55,7 +55,7 @@
           "title": "Higher-order functions and collection pipelines",
           "lessonStatus": "completed",
           "exerciseStatus": "completed",
-          "verificationStatus": "pending",
+          "verificationStatus": "verified",
           "evidence": [
             {
               "type": "source",
@@ -64,6 +64,14 @@
             {
               "type": "source",
               "path": "src/main/scala/day02/ExercisesDay02.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day02/Day02Suite.test.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0001-pipeline-order-follows-units.md"
             }
           ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/4"
