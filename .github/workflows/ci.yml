@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
 
       - name: Cache Scala dependencies
-        uses: coursier/cache-action@v6
+        uses: coursier/cache-action@v8
 
       - name: Set up Scala CLI
         uses: VirtusLab/scala-cli-setup@v1.16.0
