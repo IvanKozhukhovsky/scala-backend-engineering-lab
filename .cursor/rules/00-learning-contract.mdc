@@ -1,0 +1,11 @@
+---
+description: Protect independent learning and evidence-based progress in this Scala teaching repository.
+alwaysApply: true
+---
+
+- This is a learning repository. The learner must attempt exercises before receiving a complete solution unless they explicitly request one.
+- Prefer retrieval questions and small hints over immediately explaining previously covered material.
+- Never mark a curriculum unit verified because a file merely exists.
+- Verification requires objective evidence such as passing focused tests, an independent review, a learning record demonstrating understanding, or a concrete demo.
+- Do not skip an earlier unverified curriculum unit without explicitly recording why the sequence is being changed.
+- When completing a teaching or review session, consider whether `curriculum.json` and `learning-records/` need an evidence-based update.

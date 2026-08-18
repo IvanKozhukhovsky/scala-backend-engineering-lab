@@ -1,0 +1,11 @@
+---
+description: Use when changing repository documentation, CI, project structure, or portfolio-facing material.
+globs: "README.md,docs/**,.github/**,AGENTS.md,MISSION.md,RESOURCES.md,curriculum.json"
+alwaysApply: false
+---
+
+- Do not overstate the maturity of the project. Distinguish implemented, tested, verified, and planned work.
+- Keep README claims traceable to code, tests, CI, or documentation in the repository.
+- Never commit generated Scala CLI directories, local IDE state, environment files, credentials, or secrets.
+- Prefer reproducible commands that work from the repository root.
+- When a dependency or workflow is version-sensitive, prefer primary project documentation and record the chosen version or policy.

@@ -1,0 +1,437 @@
+{
+  "schemaVersion": 1,
+  "project": "Scala Backend Engineering Lab",
+  "repository": "IvanKozhukhovsky/scala-backend-engineering-lab",
+  "ordered": true,
+  "statusDefinitions": {
+    "lessonStatus": [
+      "planned",
+      "inProgress",
+      "completed"
+    ],
+    "exerciseStatus": [
+      "notStarted",
+      "inProgress",
+      "completed"
+    ],
+    "verificationStatus": [
+      "notStarted",
+      "pending",
+      "verified"
+    ]
+  },
+  "phases": [
+    {
+      "id": "phase-01",
+      "title": "Scala Fundamentals",
+      "goal": "Build fluency with Scala 3 expressions, functions, collections, case classes, and pattern matching.",
+      "lessons": [
+        {
+          "id": "scala-001",
+          "sequence": 1,
+          "title": "Values, expressions and basic functions",
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "pending",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "src/main/scala/day01/Day01.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day01/ExercisesDay01.scala"
+            }
+          ],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-002",
+          "sequence": 2,
+          "title": "Higher-order functions and collection pipelines",
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "pending",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "src/main/scala/day02/Day02.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day02/ExercisesDay02.scala"
+            }
+          ],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-003",
+          "sequence": 3,
+          "title": "Collections, find/exists/forall, flatMap and foldLeft",
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "pending",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "src/main/scala/day03/Day03.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day03/ExercisesDay03.scala"
+            }
+          ],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-004",
+          "sequence": 4,
+          "title": "Case classes, tuples and pattern matching",
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "pending",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "src/main/scala/day04/Day04.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day04/ExercisesDay04.scala"
+            }
+          ],
+          "githubIssue": null
+        }
+      ]
+    },
+    {
+      "id": "phase-02",
+      "title": "Type-Safe Domain Modeling",
+      "goal": "Model absence, failure and domain alternatives explicitly before introducing effects.",
+      "lessons": [
+        {
+          "id": "scala-005",
+          "sequence": 5,
+          "title": "Option and safe absence",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-006",
+          "sequence": 6,
+          "title": "Either, Try and explicit failure",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-007",
+          "sequence": 7,
+          "title": "Enums, algebraic data types and exhaustive matching",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-008",
+          "sequence": 8,
+          "title": "Traits, extension methods and type classes",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        }
+      ]
+    },
+    {
+      "id": "phase-03",
+      "title": "Testing and Functional Design",
+      "goal": "Turn requirements into executable behavior and design immutable, testable modules.",
+      "lessons": [
+        {
+          "id": "scala-009",
+          "sequence": 9,
+          "title": "MUnit and behavior-oriented unit tests",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-010",
+          "sequence": 10,
+          "title": "Property-based testing and invariants",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-011",
+          "sequence": 11,
+          "title": "Immutability, pure functions and functional core / imperative shell",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-012",
+          "sequence": 12,
+          "title": "Modules, boundaries and dependency direction",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        }
+      ]
+    },
+    {
+      "id": "phase-04",
+      "title": "Concurrency and Effects",
+      "goal": "Understand asynchronous work, effectful programs, resource safety and structured concurrency.",
+      "lessons": [
+        {
+          "id": "scala-013",
+          "sequence": 13,
+          "title": "Futures, execution contexts and concurrency fundamentals",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-014",
+          "sequence": 14,
+          "title": "Cats Effect IO and referential transparency",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-015",
+          "sequence": 15,
+          "title": "Resources, fibers, cancellation and concurrency primitives",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-016",
+          "sequence": 16,
+          "title": "Streaming fundamentals with FS2",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        }
+      ]
+    },
+    {
+      "id": "phase-05",
+      "title": "Backend Engineering",
+      "goal": "Build typed HTTP services with validation, configuration, logging and explicit error contracts.",
+      "lessons": [
+        {
+          "id": "scala-017",
+          "sequence": 17,
+          "title": "HTTP and REST contracts",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-018",
+          "sequence": 18,
+          "title": "JSON codecs, validation and API errors",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-019",
+          "sequence": 19,
+          "title": "Service architecture, configuration and structured logging",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-020",
+          "sequence": 20,
+          "title": "HTTP integration testing",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        }
+      ]
+    },
+    {
+      "id": "phase-06",
+      "title": "Persistence",
+      "goal": "Design persistence boundaries and integrate PostgreSQL safely and testably.",
+      "lessons": [
+        {
+          "id": "scala-021",
+          "sequence": 21,
+          "title": "Relational modeling and SQL from Scala",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-022",
+          "sequence": 22,
+          "title": "PostgreSQL repository layer",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-023",
+          "sequence": 23,
+          "title": "Schema migrations and transactional boundaries",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-024",
+          "sequence": 24,
+          "title": "Database integration tests",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        }
+      ]
+    },
+    {
+      "id": "phase-07",
+      "title": "Production Engineering",
+      "goal": "Add the operational practices expected from a maintainable backend service.",
+      "lessons": [
+        {
+          "id": "scala-025",
+          "sequence": 25,
+          "title": "Docker and reproducible runtime packaging",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-026",
+          "sequence": 26,
+          "title": "CI quality gates and dependency hygiene",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-027",
+          "sequence": 27,
+          "title": "Security basics for backend services",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-028",
+          "sequence": 28,
+          "title": "Metrics, logs, tracing and health checks",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        }
+      ]
+    },
+    {
+      "id": "phase-08",
+      "title": "Capstone",
+      "goal": "Combine the track into a portfolio-grade backend service and defend its design decisions.",
+      "lessons": [
+        {
+          "id": "scala-029",
+          "sequence": 29,
+          "title": "Capstone architecture and API specification",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-030",
+          "sequence": 30,
+          "title": "Capstone implementation with TDD and reviews",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-031",
+          "sequence": 31,
+          "title": "Capstone persistence, integration and failure handling",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        },
+        {
+          "id": "scala-032",
+          "sequence": 32,
+          "title": "Production hardening, documentation and release",
+          "lessonStatus": "planned",
+          "exerciseStatus": "notStarted",
+          "verificationStatus": "notStarted",
+          "evidence": [],
+          "githubIssue": null
+        }
+      ]
+    }
+  ]
+}

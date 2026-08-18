@@ -1,0 +1,31 @@
+# Scala CLI / build servers
+.scala-build/
+.bsp/
+.bloop/
+.metals/
+
+# JVM / build output
+target/
+out/
+*.class
+*.jar
+
+# IDE / OS
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Generated local reports
+build/
+reports/
+
+# Python helper cache
+__pycache__/
+*.py[cod]

@@ -1,0 +1,14 @@
+---
+description: Scala 3 engineering conventions for source and test files.
+globs: "**/*.scala"
+alwaysApply: false
+---
+
+- Target Scala 3.3.8 LTS and JVM 21 unless `project.scala` is intentionally changed with an accompanying rationale.
+- Prefer immutable values and expression-oriented Scala. Introduce mutation only when the lesson or engineering trade-off requires it.
+- Keep functions small enough that their inputs, outputs, and side effects are clear.
+- Model domain alternatives with types rather than magic strings once the curriculum has introduced the relevant type-system concepts.
+- Test observable behavior through public seams. Avoid tests coupled to implementation details.
+- Do not introduce Cats Effect, an HTTP framework, persistence libraries, or advanced abstractions before the relevant curriculum phase.
+- Explain non-obvious Scala syntax when reviewing learner code; do not replace code with a more advanced idiom unless its trade-off is taught.
+- Run Scalafmt rather than hand-formatting large changes.

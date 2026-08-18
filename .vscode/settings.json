@@ -1,0 +1,11 @@
+{
+  "files.exclude": {
+    "**/.scala-build": true,
+    "**/.bsp": true
+  },
+  "files.watcherExclude": {
+    "**/.scala-build/**": true,
+    "**/.bsp/**": true,
+    "**/target/**": true
+  }
+}

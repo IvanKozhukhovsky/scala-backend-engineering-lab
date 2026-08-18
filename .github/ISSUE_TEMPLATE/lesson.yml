@@ -1,0 +1,36 @@
+name: Learning unit
+description: Track one curriculum unit from lesson through independent exercise and verification.
+title: "[LEARN] "
+labels:
+  - learning
+body:
+  - type: input
+    id: lesson_id
+    attributes:
+      label: Curriculum ID
+      description: Use the ID from curriculum.json, for example scala-005.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Observable outcome
+      description: What should be explainable or implementable after this unit?
+    validations:
+      required: true
+  - type: checkboxes
+    id: lifecycle
+    attributes:
+      label: Learning lifecycle
+      options:
+        - label: Lesson completed
+        - label: Retrieval / explanation attempted without notes
+        - label: Independent exercise completed
+        - label: Focused verification executed
+        - label: curriculum.json updated with evidence
+        - label: Learning record added if a non-trivial insight was demonstrated
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Link tests, source files, PR/review, or learning records.
