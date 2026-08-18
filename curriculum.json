@@ -109,7 +109,7 @@
           "title": "Case classes, tuples and pattern matching",
           "lessonStatus": "completed",
           "exerciseStatus": "completed",
-          "verificationStatus": "pending",
+          "verificationStatus": "verified",
           "evidence": [
             {
               "type": "source",
@@ -118,6 +118,14 @@
             {
               "type": "source",
               "path": "src/main/scala/day04/ExercisesDay04.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day04/Day04Suite.test.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0001-match-order-first-successful-case-wins.md"
             }
           ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/6"
