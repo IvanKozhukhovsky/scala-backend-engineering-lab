@@ -1,10 +1,35 @@
 package day03
 
 // Goal: obtain the names of users who are at least 18 years old and practice collection operations.
+
+case class User(name: String, age: Int)
+
+def adults(users: List[User]): List[User] =
+  users.filter(_.age >= 18)
+
+def adultNames(users: List[User]): List[String] =
+  adults(users).map(_.name)
+
+def firstAdultOver30(users: List[User]): Option[User] =
+  adults(users).find(_.age > 30)
+
+def hasMinors(users: List[User]): Boolean =
+  users.exists(_.age < 18)
+
+def allUsersOlderThan10(users: List[User]): Boolean =
+  users.forall(_.age > 10)
+
+def sumAges(users: List[User]): Int =
+  users.foldLeft(0)((acc, value) => acc + value.age)
+
+def flattenGroups(groups: List[List[String]]): List[String] =
+  groups.flatten
+
+def flatMapGroups(groups: List[List[String]]): List[String] =
+  groups.flatMap(identity)
+
 @main
 def exercisesDay03(): Unit =
-  case class User(name: String, age: Int)
-
   val users =
     List(
       "Alice:23",
@@ -24,23 +49,17 @@ def exercisesDay03(): Unit =
     }
   println(s"Users: $parsedUsers")
 
-  val adults = parsedUsers.filter(_.age >= 18)
-  println(s"Users aged 18 or older: $adults")
+  println(s"Users aged 18 or older: ${adults(parsedUsers)}")
 
-  val adultNames = adults.map(_.name)
-  println(s"Names of users aged 18 or older: $adultNames")
+  println(s"Names of users aged 18 or older: ${adultNames(parsedUsers)}")
 
-  val firstAdultOver30 = adults.find(_.age > 30)
-  println(s"First user over 30: $firstAdultOver30")
+  println(s"First user over 30: ${firstAdultOver30(parsedUsers)}")
 
-  val hasMinors = parsedUsers.exists(_.age < 18)
-  println(s"Has minors: $hasMinors")
+  println(s"Has minors: ${hasMinors(parsedUsers)}")
 
-  val allUsersOlderThan10 = parsedUsers.forall(_.age > 10)
-  println(s"All users older than 10: $allUsersOlderThan10")
+  println(s"All users older than 10: ${allUsersOlderThan10(parsedUsers)}")
 
-  val sumAges = parsedUsers.foldLeft(0)((acc, value) => acc + value.age)
-  println(s"Sum of ages: $sumAges")
+  println(s"Sum of ages: ${sumAges(parsedUsers)}")
 
   val groups =
     List(
@@ -49,8 +68,6 @@ def exercisesDay03(): Unit =
       List("David", "Eve")
     )
 
-  val groupsList1 = groups.flatten
-  println(s"Flattened groups (method 1): $groupsList1")
+  println(s"Flattened groups (method 1): ${flattenGroups(groups)}")
 
-  val groupsList2 = groups.flatMap(identity)
-  println(s"Flattened groups (method 2): $groupsList2")
+  println(s"Flattened groups (method 2): ${flatMapGroups(groups)}")

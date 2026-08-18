@@ -26,3 +26,17 @@ description: Review a learner-authored Scala exercise attempt without replacing 
 - A more advanced abstraction is not automatically a better answer.
 - Do not turn stylistic preference into a correctness defect.
 - Do not rewrite working learner code merely to make it look AI-generated or maximally concise.
+
+## Verification seam
+
+Before verification, identify the observable behaviour and the narrowest appropriate public seam.
+
+If focused automated verification is appropriate but no test seam exists:
+
+1. Do not test console output merely because the exercise is currently implemented inside `@main`.
+2. Propose the smallest refactoring that exposes the existing learner implementation as pure or directly testable package-level behaviour.
+3. Preserve the learner's solution and avoid replacing it with a new implementation.
+4. Create focused tests against observable behaviour using independent expected values.
+5. Prefer fast unit-level tests over broader integration tests when both validate the same learning objective.
+
+If automated testing is not the appropriate oracle, use another explicit evidence type such as review, learning record, or demo.

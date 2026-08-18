@@ -4,4 +4,4 @@ This glossary is intentionally sparse. Add a term only after it has been demonst
 
 ## Terms
 
-_No terms have been promoted to the verified glossary yet._
+- **Option** — a value that is either `Some(x)` or `None`. `List.find` uses it to mean “first match, or nothing.”
