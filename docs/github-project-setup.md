@@ -1,36 +1,76 @@
 # GitHub Project Setup
 
-The repository remains the source of truth for curriculum state; GitHub Projects is the public planning and visualization layer.
+The repository remains the source of truth for curriculum state. GitHub Projects is the public execution and visualization layer.
 
-## Create the project
+## Project
 
-Create a user-level GitHub Project named **Scala Backend Engineering Roadmap** and attach this repository after publishing it.
+Create a user-level GitHub Project named **Scala Backend Engineering Roadmap** and link this repository to it.
 
-Create three views:
+Start with a single **Board** view grouped by `Status`.
 
-1. **Board** — grouped by `Status`; use it for day-to-day movement.
-2. **Curriculum** — table view sorted by lesson sequence; show phase, verification, and target date.
-3. **Roadmap** — add only when you start assigning target dates to larger backend/capstone units.
+Use three statuses only:
+
+* `Todo` — the unit is queued but active work has not started.
+* `In Progress` — this is the unit currently being learned, exercised, or verified.
+* `Done` — the unit has been verified and its issue has been closed.
+
+Keep work in progress small. Normally, only one learning unit should be `In Progress`.
+
+Do not create GitHub issues for the entire curriculum in advance. Create an issue when a curriculum unit becomes active or is one of the immediately pending verification units.
+
+A **Curriculum** table view may be added later when the number of completed and planned units becomes large enough that a board is no longer sufficient.
+
+A **Roadmap** view should only be added when target dates or larger backend/capstone milestones start to matter.
 
 ## Fields
 
-Use these fields:
+The only required project field is:
 
-- `Status`: Planned, Learning, Exercise, Verification, Done.
-- `Phase`: Fundamentals, Domain Modeling, Testing & FP, Concurrency & Effects, Backend, Persistence, Production, Capstone.
-- `Verification`: Not started, Pending, Verified.
-- `Target date`: optional date.
-- `Evidence`: short text or link to the relevant test, PR, or learning record.
+* `Status`: `Todo`, `In Progress`, `Done`.
+
+Do not duplicate `lessonStatus`, `exerciseStatus`, or `verificationStatus` as GitHub Project fields. Those states belong to `curriculum.json` and the learning-unit issue checklist.
+
+Optional fields may be introduced later when they provide real value:
+
+* `Phase`
+* `Target date`
+* `Evidence`
+
+Avoid adding fields only for documentation purposes.
 
 ## Issues
 
-Create one issue per curriculum unit, not separate issues for lecture and exercise. The issue template in `.github/ISSUE_TEMPLATE/lesson.yml` contains the lifecycle checklist. This prevents the tracker from becoming noisier than the learning itself.
+Create one issue per active curriculum unit, not separate issues for the lesson, exercise, and verification stages.
 
-When a unit is verified:
+The issue template in `.github/ISSUE_TEMPLATE/lesson.yml` contains the lifecycle checklist.
 
-1. Update `curriculum.json` with evidence.
-2. Run `python3 scripts/progress.py check`.
-3. Mark the GitHub Project item's `Verification` as `Verified` and `Status` as `Done`.
-4. Close the lesson issue.
+Each learning-unit issue should use the `learning` label so that it can be automatically added to the project.
 
-GitHub is intentionally not required for local progress, so Cursor can maintain the learning state even without GitHub account access.
+The issue represents the complete lifecycle of one curriculum unit:
+
+1. Learn or revisit the material.
+2. Attempt retrieval or explanation without relying on notes.
+3. Complete the independent exercise.
+4. Run focused verification.
+5. Record verification evidence in `curriculum.json`.
+6. Run `python3 scripts/progress.py check`.
+7. Complete the issue checklist.
+8. Close the issue as completed.
+
+When work begins on a unit, move it from `Todo` to `In Progress`.
+
+A unit moves to `Done` only after its verification state in `curriculum.json` is `verified`.
+
+Closing the issue should normally move the corresponding project item to `Done` through GitHub Project automation.
+
+## Source of truth
+
+`curriculum.json` is authoritative for learning progress.
+
+GitHub Projects visualizes current work but must not become a second independent source of curriculum state.
+
+If GitHub Project state and `curriculum.json` disagree, update GitHub to reflect `curriculum.json`, not the other way around.
+
+If a curriculum unit contains a `githubIssue` field, store the corresponding GitHub issue URL there for traceability.
+
+GitHub is intentionally not required for local progress, so Cursor can maintain and verify the learning state without GitHub account access.
