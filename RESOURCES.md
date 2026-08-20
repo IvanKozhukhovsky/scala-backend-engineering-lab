@@ -4,6 +4,10 @@
 
 - [Scala documentation](https://docs.scala-lang.org/)
   Primary source for Scala 3 syntax, language concepts, and the Scala 3 Book.
+- [Scala 3 Book: Functional Error Handling](https://docs.scala-lang.org/scala3/book/fp-functional-error-handling.html)
+  Primary narrative for `Option` / `Some` / `None`, including why sentinels such as `0` hide absence. Stop before the `Try` section until `scala-006`.
+- [Scala 3.3.8 API: Option](https://www.scala-lang.org/api/3.3.8/scala/Option.html)
+  Authoritative method contracts for `map`, `flatMap`, `getOrElse`, `get`, and `Option.apply`.
 - [Scala language website](https://www.scala-lang.org/)
   Primary source for current releases, LTS information, news, and ecosystem entry points.
 - [Scala CLI documentation](https://scala-cli.virtuslab.org/docs/)

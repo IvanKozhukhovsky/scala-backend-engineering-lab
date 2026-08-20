@@ -141,11 +141,32 @@
           "id": "scala-005",
           "sequence": 5,
           "title": "Option and safe absence",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
-          "githubIssue": null
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0001-option-and-safe-absence.html"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day05/Day05.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day05/ExercisesDay05.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day05/Day05Suite.test.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0001-option-match-names-absence.md"
+            }
+          ],
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/7"
         },
         {
           "id": "scala-006",

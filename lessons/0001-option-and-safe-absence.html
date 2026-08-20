@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Option and safe absence</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-005 · Phase 02 · Type-safe domain modeling</p>
+      <h1>Option and safe absence</h1>
+      <p class="lede">A backend lookup is allowed to find nobody. The return type should say so — before a <code>null</code> or a magic <code>0</code> can hide that fact.</p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#already-seen">You have already seen this</a></li>
+          <li><a href="#sentinel">Why sentinels lie</a></li>
+          <li><a href="#option">Option, Some, and None</a></li>
+          <li><a href="#consume">Reading an Option</a></li>
+          <li><a href="#combine">Combining two absences</a></li>
+          <li><a href="#boundary">What Option does not say</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="already-seen">
+        <strong>Retrieve first</strong>
+        In Day 03 you wrote <code>firstAdultOver30: Option[User]</code>. The tests expected <code>Some(User("Charlie", 35))</code> when Charlie existed, and <code>None</code> when nobody matched.
+        Before reading on: what would go wrong if that function returned a dummy <code>User("?", 0)</code> instead of <code>None</code>?
+      </section>
+
+      <h2 id="sentinel">Why sentinels lie</h2>
+      <p>
+        The <a href="https://docs.scala-lang.org/scala3/book/fp-functional-error-handling.html">Scala 3 Book</a> starts from a method that converts a string to an <code>Int</code> and returns <code>0</code> when conversion fails.
+        That is the same shape of bug as a dummy user: callers cannot tell a real zero from a failed parse.<a class="sidenote-ref" href="#sn-book" id="ref-book">1</a>
+      </p>
+      <aside class="sidenote" id="sn-book">
+        Scala 3 Book, <cite><a href="https://docs.scala-lang.org/scala3/book/fp-functional-error-handling.html">Functional Error Handling</a></cite>. The book’s first example is <code>makeInt</code> returning <code>0</code> on failure — then the same method returning <code>Option[Int]</code>.
+      </aside>
+      <p>
+        A missing row in a user table, a missing JSON field, and a missing query parameter are the backend versions of that problem.
+        “Not here” is information. It belongs in the type, not in a comment and not in <code>null</code>.
+      </p>
+
+      <h2 id="option">Option, Some, and None</h2>
+      <p>
+        Scala’s replacement for <code>null</code> is the trio <code>Option</code>, <code>Some</code>, and <code>None</code>.
+        <code>Some</code> and <code>None</code> are the two inhabitants of <code>Option</code>.<a class="sidenote-ref" href="#sn-api" id="ref-api">2</a>
+      </p>
+      <aside class="sidenote" id="sn-api">
+        Standard library, Scala 3.3.8:
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/Option.html"><code>Option</code></a>,
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/Some.html"><code>Some</code></a>,
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/None$.html"><code>None</code></a>.
+      </aside>
+      <figure class="option-pair">
+        <div class="option-box some">
+          <code>Some("Ada")</code>
+          <span>A container with one value.</span>
+        </div>
+        <div class="option-box none">
+          <code>None</code>
+          <span>The same kind of container, empty.</span>
+        </div>
+      </figure>
+      <figcaption>The Scala 3 Book’s working metaphor: treat <code>Option</code> as a box that holds one item or nothing.</figcaption>
+      <p>Create values like this:</p>
+<pre><code>val present: Option[String] = Some("Ada")
+val absent: Option[String]  = None
+
+// Java interop: null becomes None, anything else becomes Some
+Option("Ada")
+Option[String](null)</code></pre>
+      <p>
+        <code>Option.apply</code> is the factory that turns a possibly-null JVM value into <code>Some</code> or <code>None</code>.
+        Use it at the edge of Java APIs. Inside Scala code, write <code>Some</code> and <code>None</code> directly.<a class="sidenote-ref" href="#sn-apply">3</a>
+      </p>
+      <aside class="sidenote" id="sn-apply">
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/Option$.html"><code>Option.apply</code></a>:
+        “creates <code>Some(x)</code> if the argument is not null, and <code>None</code> if it is null.”
+      </aside>
+      <p>
+        Optional fields are the same idea. An email address that a user may not have is <code>Option[String]</code>, not <code>null</code> and not a blank string pretending to be “no email”.
+      </p>
+<pre><code>case class User(id: String, name: String, email: Option[String])
+
+User("1", "Ada", Some("ada@example.com"))
+User("2", "Grace", None)</code></pre>
+
+      <h2 id="consume">Reading an Option</h2>
+      <p>
+        You already know <code>match</code> from Day 04, and <code>map</code> / <code>filter</code> / <code>flatMap</code> from Day 03.
+        <code>Option</code> reuses both. The library’s own guidance is to treat an option as a collection of at most one element.<a class="sidenote-ref" href="#sn-idiom">4</a>
+      </p>
+      <aside class="sidenote" id="sn-idiom">
+        From the <a href="https://www.scala-lang.org/api/3.3.8/scala/Option.html"><code>Option</code> Scaladoc</a>:
+        “The most idiomatic way to use an Option instance is to treat it as a collection or monad and use <code>map</code>, <code>flatMap</code>, <code>filter</code>, or <code>foreach</code>.”
+      </aside>
+
+      <h3>Pattern match when both paths matter</h3>
+<pre><code>def displayName(user: Option[User]): String =
+  user match
+    case Some(found) =&gt; found.name
+    case None        =&gt; "guest"</code></pre>
+      <p>
+        Because <code>Option</code> is sealed, the compiler can warn if you forget <code>None</code>.
+        That warning is the point of the type: absence is a case you must name.
+      </p>
+
+      <h3>map keeps absence intact</h3>
+<pre><code>None.map(_.trim)                         // None
+Some(" ada@example.com ").map(_.trim)    // Some("ada@example.com")</code></pre>
+      <p>
+        Mapping over <code>None</code> does not throw and does not invent a value. It stays <code>None</code>.
+        That is the same “do the work only on the elements that exist” rule you used on <code>List</code>.
+      </p>
+
+      <h3>getOrElse is the fallback, get is not</h3>
+<pre><code>findUser(users, "9").map(_.name).getOrElse("guest")</code></pre>
+      <p>
+        <code>getOrElse</code> returns the inner value or evaluates the default.<a class="sidenote-ref" href="#sn-getorelse">5</a>
+        <code>Option.get</code> instead throws <code>NoSuchElementException</code> on <code>None</code>.
+        Do not call <code>.get</code> in this course. It reintroduces the crash that <code>Option</code> was meant to prevent.
+      </p>
+      <aside class="sidenote" id="sn-getorelse">
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/Option.html#getOrElse"><code>getOrElse</code></a>
+        is equivalent to matching <code>Some(x) =&gt; x</code> and <code>None =&gt; default</code>.
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/Option.html#get"><code>get</code></a>
+        is equivalent to throwing when the option is empty.
+      </aside>
+
+      <h2 id="combine">Combining two absences</h2>
+      <p>
+        A lookup can miss the user. A found user can still have no email.
+        The Scala 3 Book’s second common style is a <code>for</code> / <code>yield</code> expression, which is <code>flatMap</code> written as a pipeline.
+        If any step is <code>None</code>, the whole result is <code>None</code>.
+      </p>
+<pre><code>def primaryEmail(users: List[User], id: String): Option[String] =
+  for
+    user  &lt;- findUser(users, id)
+    email &lt;- user.email
+  yield email</code></pre>
+      <p>
+        You already used <code>flatMap</code> to flatten nested lists. Here the “list” has length 0 or 1, so flattening means “continue only if the value is present”.
+      </p>
+
+      <h2 id="boundary">What Option does not say</h2>
+      <p>
+        <code>None</code> means the value is absent. It does not say <em>why</em>.
+        The Scala 3 Book is explicit that <code>Try</code> / <code>Either</code> exist for failures that carry a reason — a missing file, a downed database, a malformed payload.<a class="sidenote-ref" href="#sn-next">6</a>
+        Those types are the next curriculum unit. Do not reach for them yet; do not pretend <code>None</code> is an error message.
+      </p>
+      <aside class="sidenote" id="sn-next">
+        Same book chapter, section <cite>Option isn’t the only solution</cite>. Curriculum unit <code>scala-006</code> covers <code>Either</code> and <code>Try</code>.
+      </aside>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read the Scala 3 Book chapter
+        <a href="https://docs.scala-lang.org/scala3/book/fp-functional-error-handling.html">Functional Error Handling</a>
+        up through the <code>Option</code> review. Skip the <code>Try</code> section for now.
+        Keep <a href="../reference/option.html">the Option cheat sheet</a> open while you code.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is three words on purpose.</p>
+      <section class="quiz" data-quiz aria-label="Option retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A Day 03 <code>find</code> that matches nobody should be modelled as which kind of result?</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">an empty option</button>
+            <button type="button">a dummy record</button>
+            <button type="button">a null pointer</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Yes. That is exactly what None is: absence, typed." data-bad="A dummy record or null hides absence. None makes it visible."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Returning <code>0</code> when <code>"foo".toInt</code> fails is a problem because:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">zero looks successful</button>
+            <button type="button">Scala forbids integers</button>
+            <button type="button">parsing becomes slower</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="The Scala 3 Book’s makeInt example: callers cannot tell a real 0 from a failed parse." data-bad="The bug is lost information, not speed or a ban on Int."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt"><code>None.map(_.trim)</code> evaluates to:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">the same None</button>
+            <button type="button">an empty text</button>
+            <button type="button">a null result</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="map on None stays None. Absence is preserved, not replaced." data-bad="map never unwraps to a raw String or to null."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">To unwrap <code>Option[String]</code> with a fallback, prefer:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">getOrElse with fallback</button>
+            <button type="button">unchecked get extraction</button>
+            <button type="button">orNull crash conversion</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="getOrElse names the fallback. get throws on None." data-bad="get and orNull reintroduce the crash or the null that Option was meant to replace."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Worked examples that you can run live in
+        <a href="../src/main/scala/day05/Day05.scala"><code>src/main/scala/day05/Day05.scala</code></a>.
+        From the repository root:
+      </p>
+<pre><code>scala-cli run . --main-class day05.day05</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Open <a href="../src/main/scala/day05/ExercisesDay05.scala"><code>ExercisesDay05.scala</code></a>.
+        Replace each <code>???</code> yourself. Use <code>find</code>, <code>match</code>, <code>map</code>, and <code>getOrElse</code> — not <code>.get</code>, not <code>null</code>.
+        When you have an attempt, run <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line of code or a quiz item is unclear, ask here in the chat.
+        Prefer a specific question (“why does <code>map</code> return <code>Option</code>?”) over “explain Option again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Also see
+          <a href="../reference/option.html">Option cheat sheet</a>
+          · next unit is <code>scala-006</code> (Either, Try, and explicit failure), not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

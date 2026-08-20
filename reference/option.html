@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Option cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-005</p>
+      <h1>Option</h1>
+      <p class="lede">Typed absence: one value, or none. Not a reason, not <code>null</code>.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson: <a href="../lessons/0001-option-and-safe-absence.html">Option and safe absence</a>.
+        API (Scala 3.3.8):
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/Option.html">Option</a>,
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/Some.html">Some</a>,
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/None$.html">None</a>.
+      </p>
+
+      <h2>Shape</h2>
+      <table>
+        <thead>
+          <tr><th>Value</th><th>Meaning</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>Some(x)</code></td><td>The container holds <code>x</code>.</td></tr>
+          <tr><td><code>None</code></td><td>The container is empty.</td></tr>
+          <tr><td><code>Option(x)</code></td><td><code>None</code> if <code>x == null</code>, otherwise <code>Some(x)</code>.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Construct</h2>
+<pre><code>Some("Ada")
+None
+users.find(_.id == id)          // already returns Option[User]
+Option(javaMap.get(key))        // null-safe edge</code></pre>
+
+      <h2>Consume</h2>
+<pre><code>opt match
+  case Some(value) =&gt; value
+  case None        =&gt; fallback
+
+opt.map(f)                      // Option[B]; None stays None
+opt.flatMap(f)                  // f returns Option[B]
+opt.filter(p)                   // Some only if p holds
+opt.getOrElse(fallback)         // unwrap or default
+opt.foreach(println)            // runs only for Some</code></pre>
+
+      <h2>Combine</h2>
+<pre><code>for
+  user  &lt;- findUser(users, id)
+  email &lt;- user.email
+yield email
+// None if the user is missing or the email is missing</code></pre>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Call <code>.get</code> — it throws on <code>None</code>.</li>
+        <li>Return <code>null</code>, a dummy record, or a magic <code>0</code> to mean “missing”.</li>
+        <li>Treat <code>None</code> as an error message. That is <code>Either</code> / <code>Try</code> in <code>scala-006</code>.</li>
+      </ul>
+
+      <h2>Backend uses</h2>
+      <ul>
+        <li>Lookup by id: <code>Option[User]</code>.</li>
+        <li>Optional field: <code>email: Option[String]</code>.</li>
+        <li>Optional query parameter or missing JSON field.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>Primary narrative: <a href="https://docs.scala-lang.org/scala3/book/fp-functional-error-handling.html">Scala 3 Book — Functional Error Handling</a>.</p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>
