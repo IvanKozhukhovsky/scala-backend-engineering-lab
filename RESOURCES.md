@@ -5,7 +5,11 @@
 - [Scala documentation](https://docs.scala-lang.org/)
   Primary source for Scala 3 syntax, language concepts, and the Scala 3 Book.
 - [Scala 3 Book: Functional Error Handling](https://docs.scala-lang.org/scala3/book/fp-functional-error-handling.html)
-  Primary narrative for `Option` / `Some` / `None`, including why sentinels such as `0` hide absence. Stop before the `Try` section until `scala-006`.
+  Primary narrative for `Option`, then `Try` as the exception-holding alternative. The `Try` walkthrough is short here; pair it with the `Try` / `Either` APIs.
+- [Scala 3.3.8 API: Try](https://www.scala-lang.org/api/3.3.8/scala/util/Try.html)
+  Authoritative contract for `Success` / `Failure`, `Try.apply`, `map`, and `get`.
+- [Scala 3.3.8 API: Either](https://www.scala-lang.org/api/3.3.8/scala/util/Either.html)
+  Authoritative contract for the Left-failure / Right-success convention and right-biased `map`.
 - [Scala 3.3.8 API: Option](https://www.scala-lang.org/api/3.3.8/scala/Option.html)
   Authoritative method contracts for `map`, `flatMap`, `getOrElse`, `get`, and `Option.apply`.
 - [Scala language website](https://www.scala-lang.org/)

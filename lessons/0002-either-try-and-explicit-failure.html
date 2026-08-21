@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Either, Try and explicit failure</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-006 · Phase 02 · Type-safe domain modeling</p>
+      <h1>Either, Try and explicit failure</h1>
+      <p class="lede">A backend call can fail for a reason. The return type should carry that reason — the same way <a href="0001-option-and-safe-absence.html"><code>Option</code></a> carries presence or absence.</p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What None cannot say</a></li>
+          <li><a href="#try">Try catches exceptions as values</a></li>
+          <li><a href="#either">Either carries a domain reason</a></li>
+          <li><a href="#choose">Which container when</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        You already know that a missing id is <code>None</code>, and that returning the inner <code>str</code> from an <code>Option[String]</code> method would be a type error.
+        Before reading on: if <code>"foo".toInt</code> fails, why is <code>None</code> a weaker answer than a value that still names the failure?
+      </section>
+
+      <h2 id="try">Try catches exceptions as values</h2>
+      <p>
+        The <a href="https://docs.scala-lang.org/scala3/book/fp-functional-error-handling.html">Scala 3 Book</a> treats
+        <code>Try</code> / <code>Success</code> / <code>Failure</code> as the same shape as
+        <code>Option</code> / <code>Some</code> / <code>None</code>, with two extra facts:
+        <code>Try</code> wraps code that can throw, and <code>Failure</code> still holds the exception.<a class="sidenote-ref" href="#sn-book">1</a>
+      </p>
+      <aside class="sidenote" id="sn-book">
+        Scala 3 Book, <cite>Functional Error Handling</cite>, section
+        <cite>Option isn’t the only solution</cite>.
+        The longer <code>Try</code> walkthrough is in the
+        <a href="https://docs.scala-lang.org/overviews/scala-book/functional-error-handling.html">previous edition of the same chapter</a>.
+      </aside>
+      <figure class="pair">
+        <div class="pair-box ok">
+          <code>Success(7)</code>
+          <span>The computation produced a value.</span>
+        </div>
+        <div class="pair-box bad">
+          <code>Failure(ex)</code>
+          <span>The computation threw; <code>ex</code> is the reason.</span>
+        </div>
+      </figure>
+<pre><code>import scala.util.{Try, Success, Failure}
+
+def parseInt(raw: String): Try[Int] =
+  Try(raw.trim.toInt)
+
+parseInt("7")    // Success(7)
+parseInt("foo")  // Failure(NumberFormatException: ...)</code></pre>
+      <p>
+        <code>Try(expr)</code> evaluates <code>expr</code> and returns <code>Success</code> or <code>Failure</code>.
+        It catches non-fatal exceptions only; serious JVM errors still abort.<a class="sidenote-ref" href="#sn-try">2</a>
+        Consume it with <code>match</code>, the same way you consumed <code>Option</code>:
+      </p>
+      <aside class="sidenote" id="sn-try">
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/util/Try.html"><code>Try</code> Scaladoc, Scala 3.3.8</a>:
+        “holds either a successfully computed value or the exception that was thrown.”
+        Combinators catch non-fatal exceptions; <code>get</code> rethrows on <code>Failure</code>.
+      </aside>
+<pre><code>parseInt(raw) match
+  case Success(n)  =&gt; s"parsed $n"
+  case Failure(ex) =&gt; s"failed: ${ex.getMessage}"</code></pre>
+      <p>
+        Do not call <code>.get</code> on a <code>Try</code>. On <code>Failure</code> it throws the original exception — the crash <code>Try</code> was meant to turn into a value.
+      </p>
+
+      <h2 id="either">Either carries a domain reason</h2>
+      <p>
+        <code>Try</code>’s failure type is always <code>Throwable</code>. A validation rule such as “port must be 1–65535” is not an exception; it is a domain message.
+        <code>Either</code> is a disjoint union: exactly one of two types.<a class="sidenote-ref" href="#sn-either">3</a>
+      </p>
+      <aside class="sidenote" id="sn-either">
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/util/Either.html"><code>Either</code> Scaladoc, Scala 3.3.8</a>:
+        “Convention dictates that <code>Left</code> is used for failure and <code>Right</code> is used for success.”
+        <code>None</code> is replaced by a <code>Left</code> that can contain useful information.
+      </aside>
+      <figure class="pair">
+        <div class="pair-box ok">
+          <code>Right(443)</code>
+          <span>Success. <code>map</code> runs here.</span>
+        </div>
+        <div class="pair-box bad">
+          <code>Left("port too large")</code>
+          <span>Failure, with a reason you chose.</span>
+        </div>
+      </figure>
+<pre><code>def requirePositive(n: Int): Either[String, Int] =
+  if n &gt; 0 then Right(n)
+  else Left(s"$n is not positive")
+
+Right(21).map(_ * 2)          // Right(42)
+Left("nope").map(_ * 2)       // Left("nope") — unchanged</code></pre>
+      <p>
+        <code>Either</code> is <em>right-biased</em>: <code>map</code> and <code>flatMap</code> transform <code>Right</code> and leave <code>Left</code> as-is.
+        That is the same “work only on the happy path” rule you already used on <code>Some</code>.
+      </p>
+<pre><code>def parsePositive(raw: String): Either[String, Int] =
+  parseInt(raw) match
+    case Failure(ex) =&gt; Left(ex.getMessage)
+    case Success(n)  =&gt; requirePositive(n)</code></pre>
+      <p>
+        A later unit will replace <code>String</code> on the left with a dedicated error type.
+        For this lesson, a message is enough — the point is that the type still says “failure has a payload.”
+      </p>
+
+      <h2 id="choose">Which container when</h2>
+      <table>
+        <thead>
+          <tr><th>Type</th><th>Use when</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>Option[A]</code></td>
+            <td>The value may be absent. There is no useful reason.</td>
+          </tr>
+          <tr>
+            <td><code>Try[A]</code></td>
+            <td>Calling into code that can throw (parsing, files, JVM APIs).</td>
+          </tr>
+          <tr>
+            <td><code>Either[E, A]</code></td>
+            <td>You want to name the failure yourself (validation, domain rules).</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        The Scala Book’s rule of thumb: <code>Try</code> when you need the exception; <code>Option</code> when you are avoiding <code>null</code>.
+        Add <code>Either</code> when the reason is yours, not the JVM’s.<a class="sidenote-ref" href="#sn-rule">4</a>
+      </p>
+      <aside class="sidenote" id="sn-rule">
+        Previous-edition Scala Book,
+        <cite><a href="https://docs.scala-lang.org/overviews/scala-book/functional-error-handling.html">Functional Error Handling</a></cite>, closing paragraph.
+      </aside>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Finish the <code>Try</code> paragraph in
+        <a href="https://docs.scala-lang.org/scala3/book/fp-functional-error-handling.html">Scala 3 Book — Functional Error Handling</a>,
+        then read the overview of
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/util/Either.html"><code>Either</code></a>
+        (Left / Right convention and right-bias).
+        Keep <a href="../reference/either-try.html">the Either / Try cheat sheet</a> open while you code.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is three words.</p>
+      <section class="quiz" data-quiz aria-label="Either and Try retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Compared with <code>Try("foo".toInt)</code>, a <code>None</code> result is weaker because it:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">carries no reason</button>
+            <button type="button">stores the exception</button>
+            <button type="button">returns a zero</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Yes. None is absence. Failure still holds the exception." data-bad="None does not store the exception and does not return 0. It simply has no payload."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt"><code>Try("x".toInt)</code> evaluates to:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">a Failure value</button>
+            <button type="button">a thrown crash</button>
+            <button type="button">an empty option</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Try turns the exception into Failure. The expression does not throw to the caller." data-bad="The point of Try is that the caller receives a value, not a thrown exception or an Option."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Scala’s convention for <code>Either</code> is that:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">Left holds failure</button>
+            <button type="button">Left holds success</button>
+            <button type="button">Left holds absence</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Right is success; Left is failure with a reason. Absence without a reason is still Option." data-bad="The Scaladoc convention is Left = failure, Right = success."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt"><code>Left(42).map(_ * 2)</code> evaluates to:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">the same Left</button>
+            <button type="button">a doubled Right</button>
+            <button type="button">a thrown error</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Either is right-biased. map skips Left." data-bad="map on Left leaves the Left unchanged. It does not throw."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Worked examples you can run live in
+        <a href="../src/main/scala/day06/Day06.scala"><code>src/main/scala/day06/Day06.scala</code></a>:
+      </p>
+<pre><code>scala-cli run . --main-class day06.day06</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Open <a href="../src/main/scala/day06/ExercisesDay06.scala"><code>ExercisesDay06.scala</code></a>.
+        Replace each <code>???</code> yourself. Use <code>Try</code>, <code>match</code> on <code>Success</code>/<code>Failure</code>, and <code>Left</code>/<code>Right</code> — not <code>.get</code>, not thrown exceptions to the caller.
+        When you have an attempt, run <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why is Either right-biased?”) over “explain Either again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0001-option-and-safe-absence.html">Option and safe absence</a>
+          · cheat sheet:
+          <a href="../reference/either-try.html">Either / Try</a>
+          · next unit is <code>scala-007</code> (enums and exhaustive matching), not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

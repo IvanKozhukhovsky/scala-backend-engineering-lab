@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Either and Try cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-006</p>
+      <h1>Either and Try</h1>
+      <p class="lede">Typed failure: a value, or a reason. Not a thrown crash to the caller.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson: <a href="../lessons/0002-either-try-and-explicit-failure.html">Either, Try and explicit failure</a>.
+        Related: <a href="option.html">Option</a>.
+        API (Scala 3.3.8):
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/util/Try.html">Try</a>,
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/util/Either.html">Either</a>.
+      </p>
+
+      <h2>Which type</h2>
+      <table>
+        <thead>
+          <tr><th>Type</th><th>Failure payload</th><th>Use when</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>Option[A]</code></td>
+            <td>none (<code>None</code>)</td>
+            <td>Absence, not a reason.</td>
+          </tr>
+          <tr>
+            <td><code>Try[A]</code></td>
+            <td><code>Throwable</code></td>
+            <td>Code that can throw.</td>
+          </tr>
+          <tr>
+            <td><code>Either[E, A]</code></td>
+            <td>your type <code>E</code></td>
+            <td>A domain or validation reason.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Try</h2>
+<pre><code>import scala.util.{Try, Success, Failure}
+
+Try(raw.toInt)                 // Success(n) or Failure(ex)
+
+t match
+  case Success(n)  =&gt; n
+  case Failure(ex) =&gt; fallback
+
+t.map(_ + 1)                   // Failure stays Failure
+t.toEither                     // Left(ex) or Right(n)</code></pre>
+
+      <h2>Either</h2>
+<pre><code>Right(443): Either[String, Int]
+Left("port too large")
+
+e match
+  case Right(port) =&gt; port
+  case Left(reason) =&gt; fallback
+
+e.map(_ + 1)                   // Left stays Left
+e.getOrElse(80)                // unwrap Right, or default</code></pre>
+      <p>Convention: <code>Left</code> is failure, <code>Right</code> is success. <code>map</code> / <code>flatMap</code> are right-biased.</p>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Call <code>.get</code> on <code>Try</code> — it throws on <code>Failure</code>.</li>
+        <li>Use <code>None</code> when the caller needs to know <em>why</em>.</li>
+        <li>Throw to the caller of a function whose type is already <code>Try</code> or <code>Either</code>.</li>
+      </ul>
+
+      <h2>Backend uses</h2>
+      <ul>
+        <li>Parse a path or header that may throw: <code>Try</code>.</li>
+        <li>Validate a port, age, or amount: <code>Either[String, A]</code> (error types come later).</li>
+        <li>Lookup that may simply miss: still <code>Option</code>.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Narrative:
+          <a href="https://docs.scala-lang.org/scala3/book/fp-functional-error-handling.html">Scala 3 Book — Functional Error Handling</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>
