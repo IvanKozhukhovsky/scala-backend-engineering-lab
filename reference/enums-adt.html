@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enums and ADTs cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-007</p>
+      <h1>Enums and ADTs</h1>
+      <p class="lede">A closed set of alternatives. The compiler can see every case.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0003-enums-algebraic-data-types-and-exhaustive-matching.html">Enums, ADTs and exhaustive matching</a>.
+        Related: <a href="either-try.html">Either / Try</a>.
+        Docs:
+        <a href="https://docs.scala-lang.org/scala3/book/types-adts-gadts.html">Scala 3 Book — ADTs</a>,
+        <a href="https://docs.scala-lang.org/scala3/reference/error-codes/E029.html">E029</a>.
+      </p>
+
+      <h2>Named values</h2>
+<pre><code>enum Role:
+  case Admin, Member, Guest
+
+Role.Admin                         // a Role, not a String</code></pre>
+      <p>
+        Cases live on the companion. <code>import Role.*</code> lets you write <code>Admin</code>.
+        An <code>enum</code> desugars to a <em>sealed</em> class — no new cases outside this file.
+      </p>
+
+      <h2>Cases that hold data</h2>
+<pre><code>enum PortError:
+  case NotAnInteger(raw: String)   // like a tiny case class
+  case OutOfRange(port: Int)       // payload you can unwrap
+
+Left(PortError.OutOfRange(0)): Either[PortError, Int]</code></pre>
+
+      <h2>Exhaustive match</h2>
+<pre><code>error match
+  case PortError.NotAnInteger(raw) =&gt; s"not an integer: $raw"
+  case PortError.OutOfRange(port)  =&gt; s"out of range: $port"</code></pre>
+      <p>
+        Miss a case and the compiler emits <a href="https://docs.scala-lang.org/scala3/reference/error-codes/E029.html">E029</a>, naming the gap.
+        <code>case _</code> silences that warning — use it for open types such as <code>Int</code>, not for a domain enum.
+      </p>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Encode alternatives as magic strings (<code>"admin"</code>, <code>"guest"</code>).</li>
+        <li>Put a free-form <code>String</code> on <code>Left</code> when the reasons form a closed set.</li>
+        <li>Use <code>case _</code> on that closed set — a new case should break the build.</li>
+      </ul>
+
+      <h2>Backend uses</h2>
+      <ul>
+        <li>Roles, job states, HTTP methods: named-value enums.</li>
+        <li>Validation / domain errors on <code>Either[E, A]</code>: enums with payloads.</li>
+        <li>Compound records (user + email + age) stay <code>case class</code>.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Alternatives vs compound data:
+          <a href="https://docs.scala-lang.org/scala3/book/domain-modeling-fp.html">Scala 3 Book — FP Modeling</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

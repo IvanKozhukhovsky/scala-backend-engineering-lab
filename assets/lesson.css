@@ -180,12 +180,27 @@ blockquote {
 }
 
 figure.pair,
-figure.option-pair {
+figure.option-pair,
+figure.trio {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 0.85rem;
   margin: 1.4rem 0;
   max-width: var(--measure);
+}
+
+figure.pair,
+figure.option-pair {
+  grid-template-columns: 1fr 1fr;
+}
+
+figure.trio {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+@media (max-width: 700px) {
+  figure.trio {
+    grid-template-columns: 1fr;
+  }
 }
 
 .pair-box,

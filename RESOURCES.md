@@ -4,6 +4,16 @@
 
 - [Scala documentation](https://docs.scala-lang.org/)
   Primary source for Scala 3 syntax, language concepts, and the Scala 3 Book.
+- [Scala 3 Book: Algebraic Data Types](https://docs.scala-lang.org/scala3/book/types-adts-gadts.html)
+  Primary narrative for Scala 3 `enum`: named values, parameterized cases, and ADTs. Skip the GADT section until a later unit needs it.
+- [Scala 3 Book: FP Modeling](https://docs.scala-lang.org/scala3/book/domain-modeling-fp.html)
+  When to use `enum` for alternatives (sum types) versus `case class` for compound data.
+- [Scala 3 Reference: Enumerations](https://docs.scala-lang.org/scala3/reference/enums/enums.html)
+  Authoritative desugaring: an `enum` is a sealed class; cases live on the companion object.
+- [Scala 3 Reference: E029 Pattern Match Exhaustivity](https://docs.scala-lang.org/scala3/reference/error-codes/E029.html)
+  The compiler warning for a match that misses an enum case, and why `case _` silences it.
+- [Tour of Scala: Pattern Matching](https://docs.scala-lang.org/tour/pattern-matching.html)
+  Exhaustivity on sealed types, including the `MatchError` risk if a warning is ignored.
 - [Scala 3 Book: Functional Error Handling](https://docs.scala-lang.org/scala3/book/fp-functional-error-handling.html)
   Primary narrative for `Option`, then `Try` as the exception-holding alternative. The `Try` walkthrough is short here; pair it with the `Try` / `Either` APIs.
 - [Scala 3.3.8 API: Try](https://www.scala-lang.org/api/3.3.8/scala/util/Try.html)

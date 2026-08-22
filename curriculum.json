@@ -203,11 +203,32 @@
           "id": "scala-007",
           "sequence": 7,
           "title": "Enums, algebraic data types and exhaustive matching",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
-          "githubIssue": null
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0003-enums-algebraic-data-types-and-exhaustive-matching.html"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day07/Day07.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day07/ExercisesDay07.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day07/Day07Suite.test.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0003-error-reasons-are-an-enum.md"
+            }
+          ],
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/9"
         },
         {
           "id": "scala-008",

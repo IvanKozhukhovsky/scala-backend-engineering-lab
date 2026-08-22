@@ -34,3 +34,11 @@ The `Either` case that holds the failure payload.
 
 **Right**:
 The `Either` case that holds the success payload.
+
+**Enum**:
+A type whose inhabitants are a closed set of named cases. A case may hold a payload.
+_Avoid_: magic strings for those alternatives
+
+**Exhaustive match**:
+A `match` that names every case of a sealed type such as an Enum.
+_Avoid_: `case _` on a domain Enum (it hides a new case)

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enums, algebraic data types and exhaustive matching</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-007 · Phase 02 · Type-safe domain modeling</p>
+      <h1>Enums, algebraic data types and exhaustive matching</h1>
+      <p class="lede">
+        Day 06 put a <code>String</code> on <code>Left</code>. A backend error is not a sentence — it is one of a
+        <em>closed</em> set of reasons the compiler can count.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What a String cannot list</a></li>
+          <li><a href="#enum">Named values</a></li>
+          <li><a href="#adt">Cases that hold data</a></li>
+          <li><a href="#exhaustive">The compiler names the miss</a></li>
+          <li><a href="#either">Either of an error enum</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        You wrote <code>validPort</code> as <code>Either[String, Int]</code>, with messages such as
+        <code>Left("Port is not in distance 1 &lt;= port &lt;= 65535")</code>.
+        Before reading on: if a later function must treat “not an integer” differently from “out of range”,
+        what can the type <code>Either[String, Int]</code> not do for you?
+      </section>
+
+      <h2 id="enum">Named values</h2>
+      <p>
+        The <a href="https://docs.scala-lang.org/scala3/book/types-adts-gadts.html">Scala 3 Book</a> starts from a type
+        that is exactly a set of names. That is an <code>enum</code>.<a class="sidenote-ref" href="#sn-enum">1</a>
+      </p>
+      <aside class="sidenote" id="sn-enum">
+        Scala 3 Book, <cite>Algebraic Data Types</cite>, section <cite>Enumerations</cite>.
+        The same idea in domain language: “if you want to model data with different alternatives, use the
+        <code>enum</code> construct” —
+        <a href="https://docs.scala-lang.org/scala3/book/domain-modeling-fp.html">FP Modeling</a>.
+      </aside>
+<pre><code>enum Role:
+  case Admin, Member, Guest</code></pre>
+      <figure class="trio">
+        <div class="pair-box ok">
+          <code>Role.Admin</code>
+          <span>One inhabitant. Not the string <code>"admin"</code>.</span>
+        </div>
+        <div class="pair-box ok">
+          <code>Role.Member</code>
+          <span>Another inhabitant of the same type.</span>
+        </div>
+        <div class="pair-box ok">
+          <code>Role.Guest</code>
+          <span>The last one. The set is closed.</span>
+        </div>
+      </figure>
+      <p>
+        Cases are members of the companion object, so you write <code>Role.Admin</code>
+        (or <code>import Role.*</code> and then <code>Admin</code>).<a class="sidenote-ref" href="#sn-companion">2</a>
+        A string <code>"admin"</code> can be misspelled; <code>Role.Admn</code> does not compile.
+      </p>
+      <aside class="sidenote" id="sn-companion">
+        <a href="https://docs.scala-lang.org/scala3/reference/enums/enums.html">Scala 3 Reference: Enumerations</a>
+        — this defines a <em>sealed</em> class <code>Role</code> with three values on <code>Role</code>’s companion.
+      </aside>
+<pre><code>def describeRole(role: Role): String =
+  role match
+    case Role.Admin  =&gt; "full access"
+    case Role.Member =&gt; "limited access"
+    case Role.Guest  =&gt; "read only"</code></pre>
+      <p>
+        You already matched on <code>Some</code> / <code>None</code> and <code>Success</code> / <code>Failure</code>.
+        This is the same shape: one <code>case</code> per inhabitant.
+      </p>
+
+      <h2 id="adt">Cases that hold data</h2>
+      <p>
+        Some alternatives are just names. Some carry a payload.
+        The Book reconstructs <code>Option</code> as an enum: <code>Some</code> holds a value,
+        <code>None</code> does not.<a class="sidenote-ref" href="#sn-option-adt">3</a>
+        A parameterized case is shorthand for a tiny <code>case</code> class that extends the enum.
+      </p>
+      <aside class="sidenote" id="sn-option-adt">
+        Same Book chapter, section <cite>Algebraic Datatypes (ADTs)</cite>:
+        <code>enum Option[+T]: case Some(x: T); case None</code>.
+        You will keep using the library <code>Option</code>; this is the shape, not a replacement.
+      </aside>
+      <figure class="pair">
+        <div class="pair-box bad">
+          <code>NotAnInteger(raw)</code>
+          <span>Parse failed. The payload is the text you tried.</span>
+        </div>
+        <div class="pair-box bad">
+          <code>OutOfRange(port)</code>
+          <span>A number, but not a TCP port. The payload is that number.</span>
+        </div>
+      </figure>
+<pre><code>enum PortError:
+  case NotAnInteger(raw: String)
+  case OutOfRange(port: Int)</code></pre>
+      <p>
+        Named values and payloads are two ends of one construct, not two languages.
+        The Book’s hybrid <code>Color</code> mixes both: <code>Red</code> / <code>Green</code> / <code>Blue</code>
+        plus <code>Mix(mix: Int)</code>.<a class="sidenote-ref" href="#sn-hybrid">4</a>
+        You do not need GADTs for this unit — stop before that section of the chapter.
+      </p>
+      <aside class="sidenote" id="sn-hybrid">
+        Same Book chapter, the <code>Color</code> example that adds <code>case Mix(mix: Int)</code>.
+        Recursion (<code>enum Nat</code>, <code>enum List</code>) is also there; leave it for later.
+      </aside>
+
+      <h2 id="exhaustive">The compiler names the miss</h2>
+      <p>
+        Because an <code>enum</code> is sealed, a <code>match</code> is checked for missing cases.
+        Drop <code>Role.Guest</code> and Scala 3 emits <a href="https://docs.scala-lang.org/scala3/reference/error-codes/E029.html">E029</a>:
+        “match may not be exhaustive” — and it names <code>Guest</code>.<a class="sidenote-ref" href="#sn-e029">5</a>
+      </p>
+      <aside class="sidenote" id="sn-e029">
+        <cite>E029: Pattern Match Exhaustivity</cite>.
+        The <a href="https://docs.scala-lang.org/tour/pattern-matching.html">Tour of Scala</a> section
+        <cite>Sealed types</cite> is the same rule on <code>sealed trait</code>: ignore the warning, hit the missing
+        case at runtime, and you get a <code>MatchError</code>.
+      </aside>
+      <p>
+        Day 04 used <code>case _</code> on <code>Int</code> because <code>Int</code> is not a closed set.
+        E029 lists <code>case _</code> as one way to silence the warning.
+        On a domain enum that is the wrong instinct: a new error case should fail the build,
+        not disappear into “other”.
+      </p>
+
+      <h2 id="either">Either of an error enum</h2>
+      <p>
+        <code>Either[String, Int]</code> can hold any sentence. The caller cannot ask the type
+        “was this a parse failure or a range failure?” — only read the text and hope.
+        Put the enum on the left:
+      </p>
+<pre><code>def validPort(port: Int): Either[PortError, Int] =
+  if port &gt;= 1 &amp;&amp; port &lt;= 65535 then Right(port)
+  else Left(PortError.OutOfRange(port))
+
+def readPort(raw: String): Either[PortError, Int] =
+  Try(raw.trim.toInt) match
+    case Failure(_) =&gt; Left(PortError.NotAnInteger(raw.trim))
+    case Success(n) =&gt; validPort(n)</code></pre>
+      <p>
+        Consume the error with the same exhaustive <code>match</code> you used on <code>Role</code>.
+        The payload comes out in the pattern, the way <code>Success(n)</code> unwraps the integer:
+      </p>
+<pre><code>def describePortError(error: PortError): String =
+  error match
+    case PortError.NotAnInteger(raw) =&gt; s"not an integer: $raw"
+    case PortError.OutOfRange(port)  =&gt; s"out of range: $port"</code></pre>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read
+        <a href="https://docs.scala-lang.org/scala3/book/types-adts-gadts.html">Scala 3 Book — Algebraic Data Types</a>
+        through the hybrid <code>Color</code> example. Skip <cite>Generalized Algebraic Datatypes</cite>.
+        Then skim
+        <a href="https://docs.scala-lang.org/scala3/reference/error-codes/E029.html">E029</a>
+        so you recognise the warning when you omit a case.
+        Keep <a href="../reference/enums-adt.html">the enums / ADT cheat sheet</a> open while you code.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is three words, same length.</p>
+      <section class="quiz" data-quiz aria-label="Enums and ADT retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Scala 3 models a closed set of named alternatives as:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">an enum type</button>
+            <button type="button">a string bag</button>
+            <button type="button">an open list</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Yes. enum is the closed set. A String can be anything." data-bad="A bag of strings or an open list does not give the compiler a finite set of cases."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A parameterized enum case such as <code>Some(x)</code> is shorthand for:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">a case class</button>
+            <button type="button">a type alias</button>
+            <button type="button">a void value</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="The Book: a parameterized case is a case class that extends the enum." data-bad="It is not an alias and not an empty value. None is the empty case; Some(x) holds x."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">If you omit one enum case from a match, the compiler:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">names the miss</button>
+            <button type="button">hides the miss</button>
+            <button type="button">skips the miss</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="E029 names the missing pattern. That is the point of a sealed enum." data-bad="The compiler does not skip or hide it. It warns, and names the case you forgot."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Compared with an error enum, <code>Left("too young")</code> is weaker because it:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">hides the cases</button>
+            <button type="button">blocks the type</button>
+            <button type="button">drops the value</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Any String type-checks. The caller cannot match on a closed set of reasons." data-bad="You can still match on Either. The loss is that the reasons are not a typed, exhaustive set."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Worked examples you can run live in
+        <a href="../src/main/scala/day07/Day07.scala"><code>src/main/scala/day07/Day07.scala</code></a>:
+      </p>
+<pre><code>scala-cli run . --main-class day07.day07</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Open <a href="../src/main/scala/day07/ExercisesDay07.scala"><code>ExercisesDay07.scala</code></a>.
+        The enums are given. Replace each <code>???</code> yourself.
+        Match every case by name — not <code>case _</code>, not a <code>String</code> on <code>Left</code>.
+        When you have an attempt, run <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why does <code>case _</code> hide a new enum case?”) over “explain enums again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0002-either-try-and-explicit-failure.html">Either, Try and explicit failure</a>
+          · cheat sheet:
+          <a href="../reference/enums-adt.html">Enums and ADTs</a>
+          · next unit is <code>scala-008</code> (traits, extensions, type classes), not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>
