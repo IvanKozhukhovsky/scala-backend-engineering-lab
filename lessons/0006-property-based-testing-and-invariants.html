@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Property-based testing and invariants</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-010 · Phase 03 · Testing and functional design</p>
+      <h1>Property-based testing and invariants</h1>
+      <p class="lede">
+        You can write a ScalaCheck <code>property</code> whose body is an invariant:
+        it must hold for generated inputs, not only for the handful of literals you listed in Day 09.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What four examples miss</a></li>
+          <li><a href="#property">forAll is “for every generated value”</a></li>
+          <li><a href="#shrink">A failure comes back small</a></li>
+          <li><a href="#gen">Generate the interesting set</a></li>
+          <li><a href="#oracle">Invariants, not the method body</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 09 pinned <code>parseLimit</code> at empty input, <code>0</code>, <code>1</code>,
+        <code>100</code>, and <code>101</code>.
+        Before reading on: what does those tests say about <code>parseLimit("47")</code>?
+        Why is listing every integer in 1 to 100 a weak way to finish the spec?
+      </section>
+
+      <h2 id="property">forAll is “for every generated value”</h2>
+      <p>
+        An <em>example</em> names one input and one expected value.
+        A <em>property</em> names a rule that should hold for a whole class of inputs.
+        ScalaCheck generates those inputs and checks the rule, by default 100 times.<a class="sidenote-ref" href="#sn-ug">1</a>
+      </p>
+      <aside class="sidenote" id="sn-ug">
+        ScalaCheck, <cite>User Guide</cite>:
+        you specify behaviour; “all test data are generated automatically.”
+        <code>forAll</code> is the usual way to write a universally quantified property.
+      </aside>
+      <p>
+        This workspace already uses MUnit
+        <code>1.0.4</code>.
+        Property tests need the extra module
+        <code>munit-scalacheck</code> <code>1.0.0</code>
+        (there is no <code>1.0.4</code> of that artifact).
+        Extend <code>munit.ScalaCheckSuite</code> and write
+        <code>property</code> instead of only <code>test</code>.<a class="sidenote-ref" href="#sn-munit">2</a>
+      </p>
+      <aside class="sidenote" id="sn-munit">
+        MUnit, <cite>ScalaCheck</cite>:
+        <code>property</code> is almost <code>test</code>, but the body must be a ScalaCheck
+        <code>Prop</code>.
+        You can still call <code>assertEquals</code> inside <code>forAll</code>.
+      </aside>
+<pre><code>import munit.ScalaCheckSuite
+import org.scalacheck.Prop.forAll
+
+def clamp(value: Int, lo: Int, hi: Int): Int =
+  if value &lt; lo then lo
+  else if value &gt; hi then hi
+  else value
+
+class Day10Suite extends ScalaCheckSuite:
+  test("clamp 150 into 1 to 100 is 100"):
+    assertEquals(clamp(150, 1, 100), 100)
+
+  property("when lo &lt;= hi, clamp stays in [lo, hi]"):
+    forAll { (value: Int, lo: Int, hi: Int) =>
+      (lo &lt;= hi) ==> {
+        val got = clamp(value, lo, hi)
+        got &gt;= lo &amp;&amp; got &lt;= hi
+      }
+    }</code></pre>
+      <p>
+        <code>test</code> still belongs here: it pins a known HTTP-style example
+        (a query limit of 150 becomes 100).
+        <code>property</code> is the rule a pagination or timeout clamp must obey for
+        <em>whatever</em> integers ScalaCheck draws.
+        Import <code>propBoolean</code> next to <code>forAll</code> so a
+        <code>Boolean</code> on the left of <code>==&gt;</code> becomes a
+        <code>Prop</code>.<a class="sidenote-ref" href="#sn-impl">3</a>
+      </p>
+      <aside class="sidenote" id="sn-impl">
+        ScalaCheck, <cite>Conditional Properties</cite>:
+        <code>==&gt;</code> keeps a case only when the premise holds.
+        Import <code>org.scalacheck.Prop.propBoolean</code>.
+      </aside>
+
+      <h2 id="shrink">A failure comes back small</h2>
+      <p>
+        The User Guide’s <code>sqrt</code> property is false for negatives.
+        ScalaCheck first found a large <code>Int</code>, then
+        <em>minimised</em> it to <code>-1</code> before reporting.<a class="sidenote-ref" href="#sn-shrink">4</a>
+        That is the point of a property failure: you get a small counterexample,
+        not a stack of random noise.
+      </p>
+      <aside class="sidenote" id="sn-shrink">
+        ScalaCheck, <cite>User Guide</cite> quick example, and
+        <cite>Test Case Minimisation</cite>.
+        <code>ARG_0</code> is the shrunk value;
+        <code>ARG_0_ORIGINAL</code> is what failed first.
+      </aside>
+      <p>
+        MUnit also prints a seed so you can replay a flaky draw.
+        That knob lives on the
+        <a href="../reference/scalacheck.html">ScalaCheck cheat sheet</a>;
+        you do not need it for the exercise.
+      </p>
+
+      <h2 id="gen">Generate the interesting set</h2>
+      <p>
+        <code>==&gt;</code> <em>discards</em> cases where the premise is false.
+        If the premise almost never holds, ScalaCheck runs out of tries and
+        reports that it <em>gave up</em> — not that the property passed.<a class="sidenote-ref" href="#sn-gave">5</a>
+      </p>
+      <aside class="sidenote" id="sn-gave">
+        ScalaCheck, <cite>Conditional Properties</cite>:
+        <code>(n == 0) ==&gt; …</code> on a random <code>Int</code> is the textbook
+        “Gave up after only 4 passed tests. 500 tests were discarded.”
+        Prefer a tighter generator over turning the discard ratio up.
+      </aside>
+      <p>
+        <code>lo &lt;= hi</code> is true often enough, so implication is fine there.
+        “The value is already inside <code>[lo, hi]</code>” is rare for three
+        independent <code>Int</code>s. Generate that set instead:
+      </p>
+<pre><code>import org.scalacheck.Gen
+
+property("a value already in [lo, hi] is unchanged"):
+  forAll(Gen.choose(-1000, 1000), Gen.choose(0, 2000), Gen.choose(0, 2000)) {
+    (lo, width, rawOffset) =>
+      val hi = lo + width
+      val value = lo + math.min(rawOffset, width)
+      assertEquals(clamp(value, lo, hi), value)
+  }</code></pre>
+      <p>
+        <code>Gen.choose(a, b)</code> draws inclusive bounds you name.
+        Pass those generators to <code>forAll</code> when you do not want the
+        default <code>Arbitrary[Int]</code> (the whole integer line).<a class="sidenote-ref" href="#sn-choose">6</a>
+      </p>
+      <aside class="sidenote" id="sn-choose">
+        ScalaCheck, <cite>Universally quantified properties</cite>:
+        <code>val smallInteger = Gen.choose(0,100)</code>
+        then <code>Prop.forAll(smallInteger) { n =&gt; … }</code>.
+        Do not write a custom <code>Arbitrary</code> in this unit.
+      </aside>
+
+      <h2 id="oracle">Invariants, not the method body</h2>
+      <p>
+        Day 09’s tautology still applies. A property that pastes
+        <code>clamp</code>’s <code>if</code> into the expected side cannot
+        disagree with a bug:
+      </p>
+<pre><code>// independent — a person can check “in range” without reading clamp
+got &gt;= lo &amp;&amp; got &lt;= hi
+
+// tautology — this is the implementation, twice
+clamp(value, lo, hi) == (
+  if value &lt; lo then lo
+  else if value &gt; hi then hi
+  else value
+)</code></pre>
+      <p>
+        Worked example:
+        <a href="../src/main/scala/day10/Day10.scala"><code>Day10.scala</code></a>
+        and
+        <a href="../src/test/scala/day10/Day10Suite.test.scala"><code>Day10Suite.test.scala</code></a>.
+        Read the suite as a spec. Do not copy it into the exercise — the exercise
+        tests a different function.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read the ScalaCheck
+        <a href="https://github.com/typelevel/scalacheck/blob/main/doc/UserGuide.md">User Guide</a>
+        from “What is ScalaCheck?” through
+        <cite>Conditional Properties</cite>, including the
+        <code>Gen.choose</code> <code>forAll</code> example.
+        Stop before combining properties, <code>Properties</code> objects, labels,
+        and custom <code>Arbitrary</code> / <code>Shrink</code>.
+        Then read MUnit
+        <a href="https://scalameta.org/munit/docs/integrations/scalacheck.html">ScalaCheck</a>
+        through <cite>Using assertions</cite>.
+        Stop before ScalaTest migration.
+        Keep
+        <a href="../reference/scalacheck.html">the ScalaCheck cheat sheet</a>
+        open while you code.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is three words.</p>
+      <section class="quiz" data-quiz aria-label="ScalaCheck retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">ScalaCheck checks a property against:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">generated random inputs</button>
+            <button type="button">one listed example</button>
+            <button type="button">empty test bodies</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="forAll draws many values (100 by default) from generators or Arbitrary instances." data-bad="An example pins one case. An empty body still passes in MUnit and checks nothing."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">After a property fails, ScalaCheck tries to:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">minimize the argument</button>
+            <button type="button">rerun empty bodies</button>
+            <button type="button">copy the formula</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Shrinking reports a small counterexample (ARG_0), not only the first large failing value." data-bad="Empty bodies are a MUnit lie. Copying the implementation cannot disagree with a bug."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">If the <code>==&gt;</code> premise almost never holds, ScalaCheck:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">reports gave up</button>
+            <button type="button">still reports pass</button>
+            <button type="button">skips the compiler</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Too many discards is undecided, not green. Generate the interesting inputs instead." data-bad="Gave-up is a failed run. The file still compiles; the property did not hold often enough to accept."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">The body of a property should be:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">independent spec invariant</button>
+            <button type="button">copied method body</button>
+            <button type="button">captured debug answers</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="“Stays in range” can fail if clamp is wrong. Pasting the if-expression cannot." data-bad="Restating the implementation, or pasting a println, cannot catch a bug both sides share."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day10.Day10Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        <code>pageOffset</code> is already implemented in
+        <a href="../src/main/scala/day10/ExercisesDay10.scala"><code>ExercisesDay10.scala</code></a>.
+        Do not change that file. The skill is the properties.
+        Open
+        <a href="../src/test/scala/day10/ExercisesDay10Suite.test.scala"><code>ExercisesDay10Suite.test.scala</code></a>
+        and replace the placeholder.
+        Name invariants. Use <code>Gen.choose(1, 1000)</code> for both
+        <code>page</code> and <code>pageSize</code> so you stay inside the defined
+        domain and away from <code>Int</code> overflow.
+        Cover: a valid offset is non-negative; page 1 starts at 0; the next page
+        starts one <code>pageSize</code> later.
+        Do not use <code>(page - 1) * pageSize</code> as the expected value.
+        Then run
+        <code>scala-cli test . --test-only 'day10.ExercisesDay10Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why did my property give up?”) over “explain ScalaCheck again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0005-munit-and-behavior-oriented-unit-tests.html">MUnit and behavior-oriented unit tests</a>
+          · cheat sheets:
+          <a href="../reference/munit.html">MUnit</a>,
+          <a href="../reference/scalacheck.html">ScalaCheck</a>
+          · next unit is <code>scala-011</code> (immutability and functional core), not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

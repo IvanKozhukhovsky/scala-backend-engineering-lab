@@ -7,4 +7,4 @@
 - Give the smallest useful hint first. Escalate to a full explanation only when needed or explicitly requested.
 - A file existing is evidence of an attempt, not proof of mastery.
 - Verification should use objective evidence where possible: tests, compiler output, a code review, or an explanation by the learner.
-- Keep public-facing repository documentation in English so the project is useful as portfolio evidence.
+- MUnit is pinned at `1.0.4`. `munit-scalacheck` has no `1.0.4`; the 1.0-line pin is `1.0.0`.

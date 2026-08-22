@@ -50,6 +50,12 @@
   An empty test body still passes. Stop before async tests, tags, fixtures, and retries until a later unit.
 - [MUnit: Writing assertions](https://scalameta.org/munit/docs/assertions.html)
   Diffs from `assertEquals`; `assert` has a weaker failure message; unrelated types do not compile.
+- [MUnit: ScalaCheck](https://scalameta.org/munit/docs/integrations/scalacheck.html)
+  `ScalaCheckSuite`, `property`, `forAll`, and `assertEquals` inside a property. The page’s version number tracks current MUnit; this repo pins `munit-scalacheck` `1.0.0` next to MUnit `1.0.4`. Stop before ScalaTest migration.
+- [ScalaCheck User Guide](https://github.com/typelevel/scalacheck/blob/main/doc/UserGuide.md)
+  Primary narrative for `forAll`, `==>` (including “gave up”), `Gen.choose`, and shrinking. Stop before combining properties, custom `Arbitrary`, and custom `Shrink`.
+- [ScalaCheck](https://github.com/typelevel/scalacheck)
+  Upstream library pulled transitively (this repo: ScalaCheck `1.18.0` via `munit-scalacheck` `1.0.0`).
 - [Cats Effect documentation](https://typelevel.org/cats-effect/)
   Reserved for the effects/concurrency phase; do not introduce it before the curriculum reaches that phase.
 - [http4s documentation](https://http4s.org/)

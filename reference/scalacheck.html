@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ScalaCheck cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-010</p>
+      <h1>ScalaCheck</h1>
+      <p class="lede">A property names an invariant; <code>forAll</code> checks it on generated inputs.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0006-property-based-testing-and-invariants.html">Property-based testing and invariants</a>.
+        Docs:
+        <a href="https://github.com/typelevel/scalacheck/blob/main/doc/UserGuide.md">ScalaCheck User Guide</a>,
+        <a href="https://scalameta.org/munit/docs/integrations/scalacheck.html">MUnit ScalaCheck</a>.
+      </p>
+
+      <h2>Shape</h2>
+<pre><code>import munit.ScalaCheckSuite
+import org.scalacheck.Gen
+import org.scalacheck.Prop.{forAll, propBoolean}
+
+class Day10Suite extends ScalaCheckSuite:
+  property("when lo &lt;= hi, clamp stays in [lo, hi]"):
+    forAll { (value: Int, lo: Int, hi: Int) =>
+      (lo &lt;= hi) ==> {
+        val got = clamp(value, lo, hi)
+        got &gt;= lo &amp;&amp; got &lt;= hi
+      }
+    }</code></pre>
+      <p>
+        This repo pins MUnit <code>1.0.4</code> and
+        <code>munit-scalacheck</code> <code>1.0.0</code> in
+        <code>project.scala</code> (ScalaCheck <code>1.18.0</code> is transitive).
+        <code>property</code> requires a <code>Prop</code>.
+        <code>test</code> still works on the same suite.
+      </p>
+
+      <h2>Run</h2>
+<pre><code>scala-cli test .
+scala-cli test . --test-only 'day10.Day10Suite'</code></pre>
+
+      <h2>Generators</h2>
+      <ul>
+        <li><code>forAll { (n: Int) => … }</code> uses the default <code>Arbitrary[Int]</code>.</li>
+        <li><code>forAll(Gen.choose(1, 1000)) { n => … }</code> uses inclusive bounds you name.</li>
+        <li><code>(premise) ==&gt; result</code> discards when the premise is false. Import <code>propBoolean</code>.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Name the invariant a caller would care about.</li>
+        <li>Check a rule that can fail if the implementation is wrong (in range, identity, next page).</li>
+        <li>Prefer a tighter <code>Gen</code> when <code>==&gt;</code> would discard almost every case.</li>
+        <li>Prefer <code>assertEquals</code> inside <code>forAll</code> when both sides are values, not inequalities.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Restate the function body as the expected value.</li>
+        <li>Leave a <code>property</code> body empty — same green lie as an empty <code>test</code>.</li>
+        <li>Use full-range <code>Int</code> for products such as <code>(page - 1) * pageSize</code> in this unit.</li>
+        <li>Write a custom <code>Arbitrary</code> or <code>Shrink</code> yet.</li>
+      </ul>
+
+      <h2>Replay (later)</h2>
+<pre><code>override def scalaCheckInitialSeed = "…"
+override def scalaCheckTestParameters =
+  super.scalaCheckTestParameters.withMinSuccessfulTests(200)</code></pre>
+      <p>
+        MUnit prints the seed on a property failure.
+        Raising discard ratio is a last resort; fix the generator first.
+      </p>
+
+      <footer class="meta">
+        <p>
+          Custom <code>Arbitrary</code> instances, labels, and
+          <code>Properties</code> objects are later material, not this cheat sheet.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>
