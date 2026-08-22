@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Traits and type classes cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-008</p>
+      <h1>Traits and type classes</h1>
+      <p class="lede">Shared behaviour: extend a trait, attach an extension, or supply a given.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0004-traits-extension-methods-and-type-classes.html">Traits, extension methods and type classes</a>.
+        Related: <a href="enums-adt.html">Enums and ADTs</a>.
+        Docs:
+        <a href="https://docs.scala-lang.org/scala3/book/ca-type-classes.html">Scala 3 Book — Type Classes</a>,
+        <a href="https://docs.scala-lang.org/scala3/book/ca-extension-methods.html">Extension Methods</a>,
+        <a href="https://docs.scala-lang.org/tour/traits.html">Tour — Traits</a>.
+      </p>
+
+      <h2>Classic trait</h2>
+<pre><code>trait Show:
+  def show: String                         // required
+  def showHtml: String = s"&lt;p&gt;$show&lt;/p&gt;"   // provided
+
+case class Document(text: String) extends Show:
+  def show: String = text                  // Document is a Show</code></pre>
+      <p>
+        Use when the types are yours and they truly share one hierarchy.
+        You cannot <code>new</code> a trait.
+      </p>
+
+      <h2>Extension method</h2>
+<pre><code>extension (c: Circle)
+  def circumference: Double = c.radius * math.Pi * 2
+
+Circle(0, 0, 5).circumference              // looks like a member</code></pre>
+      <p>
+        Adds a method after the type is closed. Import the extension if it lives elsewhere.
+        Syntax only — it does not select an implementation per type by itself.
+      </p>
+
+      <h2>Type class</h2>
+<pre><code>trait Showable[A]:
+  extension (a: A) def show: String
+
+given Showable[Person] with
+  extension (p: Person) def show: String =
+    s"${p.firstName} ${p.lastName}"
+
+Person("John", "Doe").show
+
+def showAll[A](as: List[A])(using Showable[A]): List[String] =
+  as.map(_.show)
+
+// compact form of the same using clause:
+def showAll[A: Showable](as: List[A]): List[String] = as.map(_.show)</code></pre>
+      <p>
+        The type does not <code>extends Showable</code>. A <code>given</code> sits beside it —
+        including for enums and for types you do not own.
+      </p>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Put log / JSON / email methods on the domain enum just because you can match there.</li>
+        <li>Write <code>case _</code> inside a <code>given</code> that matches a closed enum.</li>
+        <li>Call <code>.toString</code> in a function that already has <code>using Showable[A]</code>.</li>
+        <li>Force unrelated types into one <code>extends Show</code> hierarchy so they can be logged.</li>
+      </ul>
+
+      <h2>Backend uses</h2>
+      <ul>
+        <li>A service interface you implement: classic trait.</li>
+        <li>A helper on <code>String</code> or a library type: extension.</li>
+        <li>Show / JSON / equality for many unrelated types: type class (libraries later).</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          How a type class is implemented:
+          <a href="https://docs.scala-lang.org/scala3/reference/contextual/type-classes.html">Scala 3 Reference — Implementing Type classes</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

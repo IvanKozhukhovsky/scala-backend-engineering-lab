@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Traits, extension methods and type classes</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-008 · Phase 02 · Type-safe domain modeling</p>
+      <h1>Traits, extension methods and type classes</h1>
+      <p class="lede">
+        Day 07 closed the <em>data</em>. A backend also needs shared <em>behaviour</em> —
+        render, log, encode — without stuffing every method into the enum or editing types you do not own.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What the enum cannot host</a></li>
+          <li><a href="#trait">A trait is a named capability</a></li>
+          <li><a href="#extension">Methods after the type is closed</a></li>
+          <li><a href="#typeclass">A given instance beside the type</a></li>
+          <li><a href="#using">using and the compact bound</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        You wrote <code>describePortError</code> as a function that matches on <code>PortError</code>.
+        Before reading on: if the same error must be a log line, a JSON body, and an email subject,
+        why is putting <code>def show</code>, <code>def json</code>, and <code>def email</code>
+        <em>inside</em> the enum a weaker long-term move than keeping the enum as data?
+      </section>
+
+      <h2 id="trait">A trait is a named capability</h2>
+      <p>
+        The <a href="https://docs.scala-lang.org/scala3/book/domain-modeling-oop.html">Scala 3 Book</a>
+        treats a <code>trait</code> as the primary shared interface: abstract members are
+        <em>required</em> services, concrete members are <em>provided</em> services.<a class="sidenote-ref" href="#sn-oop">1</a>
+        You cannot construct a trait on its own.<a class="sidenote-ref" href="#sn-tour">2</a>
+      </p>
+      <aside class="sidenote" id="sn-oop">
+        Scala 3 Book, <cite>OOP Modeling</cite>, section <cite>Traits</cite>.
+        The <code>Showable</code> example there is a classic trait — no type parameter yet.
+      </aside>
+      <aside class="sidenote" id="sn-tour">
+        <a href="https://docs.scala-lang.org/tour/traits.html">Tour of Scala: Traits</a>:
+        classes and objects extend traits; traits have no constructor you can call.
+      </aside>
+<pre><code>trait Show:
+  def show: String
+  def showHtml: String = s"&lt;p&gt;$show&lt;/p&gt;"
+
+case class Document(text: String) extends Show:
+  def show: String = text</code></pre>
+      <p>
+        <code>Document</code> <em>is a</em> <code>Show</code>. Anywhere a <code>Show</code> is expected,
+        a <code>Document</code> is allowed — that is subtyping.
+        <code>showHtml</code> is already implemented; only <code>show</code> had to be filled in.
+      </p>
+      <p>
+        That is the right tool when the types are yours and they really share one hierarchy.
+        It is the wrong tool when <code>String</code>, a library <code>Role</code>, and your
+        <code>User</code> must all become a log line — they should not all <code>extends Show</code>.
+      </p>
+
+      <h2 id="extension">Methods after the type is closed</h2>
+      <p>
+        Extension methods add a method to a type <em>after</em> it is defined, including types
+        whose source you cannot edit.<a class="sidenote-ref" href="#sn-ext">3</a>
+      </p>
+      <aside class="sidenote" id="sn-ext">
+        Scala 3 Book, <cite>Extension Methods</cite>.
+        The Book’s <code>Circle</code> cannot grow a <code>circumference</code> field in its original file.
+      </aside>
+<pre><code>case class Circle(x: Double, y: Double, radius: Double)
+
+extension (c: Circle)
+  def circumference: Double = c.radius * math.Pi * 2
+
+Circle(0, 0, 5).circumference</code></pre>
+      <p>
+        The <code>extension (c: Circle)</code> clause is the receiver: inside the method, <code>c</code>
+        is the value on the left of the dot.
+        Several methods can share one <code>extension</code> block.
+        If the method lives in another package, you import it — the compiler will even suggest the import.
+      </p>
+      <p>
+        An extension is syntax. It does not, by itself, let one function say
+        “this works for every type that can be shown.” That is the next step.
+      </p>
+
+      <h2 id="typeclass">A given instance beside the type</h2>
+      <p>
+        A type class is a <em>parameterized</em> trait whose implementations are
+        <code>given</code> instances, not subclasses.<a class="sidenote-ref" href="#sn-tc">4</a>
+        You add behaviour to a closed type without making that type extend anything.
+      </p>
+      <aside class="sidenote" id="sn-tc">
+        Scala 3 Book, <cite>Type Classes</cite>, and
+        <a href="https://docs.scala-lang.org/scala3/reference/contextual/type-classes.html">Reference: Implementing Type classes</a>.
+        Same definition: new behaviour, no subtyping.
+      </aside>
+      <table>
+        <thead>
+          <tr><th></th><th>Classic trait</th><th>Type class</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Shape</td>
+            <td><code>trait Show</code></td>
+            <td><code>trait Showable[A]</code></td>
+          </tr>
+          <tr>
+            <td>How a type joins</td>
+            <td><code>A extends Show</code></td>
+            <td>a <code>given Showable[A]</code></td>
+          </tr>
+          <tr>
+            <td>Who you can extend</td>
+            <td>Types you own</td>
+            <td>Also types you do not own</td>
+          </tr>
+        </tbody>
+      </table>
+<pre><code>trait Showable[A]:
+  extension (a: A) def show: String
+
+case class Person(firstName: String, lastName: String)
+
+given Showable[Person] with
+  extension (p: Person) def show: String =
+    s"${p.firstName} ${p.lastName}"
+
+Person("John", "Doe").show   // "John Doe"</code></pre>
+      <p>
+        The Book puts <code>show</code> on <code>Showable</code> as an extension so the call site
+        looks like the classic trait: <code>person.show</code>, not <code>showable.show(person)</code>.
+        The capability lives <em>next to</em> <code>Person</code>, so a JSON codec or a log format
+        can live in another file without editing the case class.
+      </p>
+      <p>
+        An enum from Day 07 is the same move: keep <code>Role</code> as data, supply
+        <code>given Showable[Role]</code>, and match every case in that given — not
+        <code>case _</code>.
+      </p>
+<pre><code>enum Role:
+  case Admin, Member, Guest
+
+given Showable[Role] with
+  extension (r: Role) def show: String =
+    r match
+      case Role.Admin  =&gt; "admin"
+      case Role.Member =&gt; "member"
+      case Role.Guest  =&gt; "guest"</code></pre>
+
+      <h2 id="using">using and the compact bound</h2>
+      <p>
+        A function that needs the capability takes it as a context parameter.
+        The compiler fills that argument from a <code>given</code> in scope.<a class="sidenote-ref" href="#sn-using">5</a>
+      </p>
+      <aside class="sidenote" id="sn-using">
+        Scala 3 Book, <cite>Context Parameters</cite>:
+        a <code>using</code> clause marks the parameter; a <code>given</code> is the canonical value.
+        <code>[A: Showable]</code> is the Book’s compact form of <code>(using Showable[A])</code>.
+      </aside>
+<pre><code>def showAll[A](as: List[A])(using Showable[A]): List[String] =
+  as.map(_.show)
+
+// same contract, shorter:
+def showAll[A: Showable](as: List[A]): List[String] =
+  as.map(_.show)
+
+showAll(List(Role.Admin, Role.Guest))   // List("admin", "guest")</code></pre>
+      <p>
+        If no <code>given Showable[A]</code> is in scope, this does not compile — that is the point.
+        You cannot silently <code>.toString</code> a type that was never shown.
+        Later backend libraries (JSON codecs, equality, pretty-printing) are this pattern with
+        different names. Do not pull those libraries in yet.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read
+        <a href="https://docs.scala-lang.org/scala3/book/ca-type-classes.html">Scala 3 Book — Type Classes</a>
+        through <cite>Writing methods that use the type class</cite>.
+        Then skim
+        <a href="https://docs.scala-lang.org/scala3/book/ca-extension-methods.html">Extension Methods</a>
+        (the <code>Circle</code> example) and the <cite>Traits</cite> section of
+        <a href="https://docs.scala-lang.org/scala3/book/domain-modeling-oop.html">OOP Modeling</a>.
+        Skip mixin composition, self types, and the rest of the OOP chapter.
+        Keep <a href="../reference/traits-type-classes.html">the traits / type-class cheat sheet</a> open while you code.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is three words.</p>
+      <section class="quiz" data-quiz aria-label="Traits and type-class retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A named capability that a class implements with <code>extends</code> is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">an abstract trait</button>
+            <button type="button">a dummy value</button>
+            <button type="button">a thrown error</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="A trait is the interface. You extend it; you do not construct it." data-bad="A dummy value or a thrown error is not the shared interface. The class extends a trait."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Adding <code>circumference</code> to a <code>Circle</code> you do not own is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">an extension method</button>
+            <button type="button">a parent rewrite</button>
+            <button type="button">a runtime cast</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="extension attaches the method after the type is closed. You do not edit Circle or cast it." data-bad="You do not rewrite a parent class you do not own, and you do not cast. Use extension."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A type-class implementation is provided as:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">a given instance</button>
+            <button type="button">a subclass body</button>
+            <button type="button">a thrown method</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="given Showable[A] sits beside the type. The type does not have to extend the trait." data-bad="The type does not become a subclass. The instance is a given, not a thrown method."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Compared with <code>extends Show</code>, <code>Showable[A]</code> is stronger because it:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">avoids sub-typing</button>
+            <button type="button">hides the method</button>
+            <button type="button">drops the value</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="The Book’s contrast: the type need not extend Showable. A given is enough, including for types you do not own." data-bad="The method is still called show, and the value is still there. The gain is skipping the extends relationship."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Worked examples you can run live in
+        <a href="../src/main/scala/day08/Day08.scala"><code>src/main/scala/day08/Day08.scala</code></a>:
+      </p>
+<pre><code>scala-cli run . --main-class day08.day08</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Open <a href="../src/main/scala/day08/ExercisesDay08.scala"><code>ExercisesDay08.scala</code></a>.
+        Replace each <code>???</code> yourself.
+        Implement the trait method, the extension, the two <code>given</code> instances, and <code>shown</code>.
+        Do not put <code>show</code> on the case class or the enum; do not use <code>case _</code> on <code>Status</code>;
+        do not call <code>toString</code> inside <code>shown</code>.
+        When you have an attempt, run <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why does <code>Person</code> not <code>extends Showable</code>?”) over “explain type classes again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0003-enums-algebraic-data-types-and-exhaustive-matching.html">Enums, ADTs and exhaustive matching</a>
+          · cheat sheet:
+          <a href="../reference/traits-type-classes.html">Traits and type classes</a>
+          · next unit is <code>scala-009</code> (MUnit), not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

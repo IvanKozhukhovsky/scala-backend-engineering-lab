@@ -12,6 +12,18 @@
   Authoritative desugaring: an `enum` is a sealed class; cases live on the companion object.
 - [Scala 3 Reference: E029 Pattern Match Exhaustivity](https://docs.scala-lang.org/scala3/reference/error-codes/E029.html)
   The compiler warning for a match that misses an enum case, and why `case _` silences it.
+- [Tour of Scala: Traits](https://docs.scala-lang.org/tour/traits.html)
+  Shared interfaces: a trait cannot be instantiated; classes extend it and implement abstract members.
+- [Scala 3 Book: OOP Modeling](https://docs.scala-lang.org/scala3/book/domain-modeling-oop.html)
+  Traits as the primary decomposition tool. Use the Traits section only; skip mixin composition, self types, and the advanced component example.
+- [Scala 3 Book: Extension Methods](https://docs.scala-lang.org/scala3/book/ca-extension-methods.html)
+  Adding methods to a type after it is defined, including types whose source you do not own.
+- [Scala 3 Book: Type Classes](https://docs.scala-lang.org/scala3/book/ca-type-classes.html)
+  Primary narrative for this unit: parameterized trait plus `given` instance, contrasted with a classic `extends` trait.
+- [Scala 3 Book: Context Parameters](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html)
+  `using` clauses and `given` instances: how the compiler fills the type-class argument.
+- [Scala 3 Reference: Implementing Type classes](https://docs.scala-lang.org/scala3/reference/contextual/type-classes.html)
+  Authoritative wording: new behaviour on a closed type without subtyping; implementations are givens, not `extends`.
 - [Tour of Scala: Pattern Matching](https://docs.scala-lang.org/tour/pattern-matching.html)
   Exhaustivity on sealed types, including the `MatchError` risk if a warning is ignored.
 - [Scala 3 Book: Functional Error Handling](https://docs.scala-lang.org/scala3/book/fp-functional-error-handling.html)

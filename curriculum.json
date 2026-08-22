@@ -234,11 +234,36 @@
           "id": "scala-008",
           "sequence": 8,
           "title": "Traits, extension methods and type classes",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
-          "githubIssue": null
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0004-traits-extension-methods-and-type-classes.html"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day08/Day08.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day08/ExercisesDay08.scala"
+            },
+            {
+              "type": "source",
+              "path": "reference/traits-type-classes.html"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day08/Day08Suite.test.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0004-show-lives-in-the-given.md"
+            }
+          ],
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/10"
         }
       ]
     },
