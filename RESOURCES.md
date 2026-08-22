@@ -38,10 +38,18 @@
   Primary source for current releases, LTS information, news, and ecosystem entry points.
 - [Scala CLI documentation](https://scala-cli.virtuslab.org/docs/)
   Primary source for compiling, testing, formatting, packaging, and IDE integration in this workspace.
+- [Scala CLI: Test](https://scala-cli.virtuslab.org/docs/commands/test)
+  Test sources (`src/test/scala`, `*.test.scala`), `scala-cli test .`, and `--test-only`.
 - [Scala Style Guide](https://docs.scala-lang.org/style/)
   Baseline style guidance; repository-specific conventions take precedence when explicitly documented.
 - [MUnit documentation](https://scalameta.org/munit/)
-  Primary source for the testing framework used in the fundamentals phase.
+  Primary source for the testing framework used in this workspace (pinned at 1.0.4 in `project.scala`).
+- [MUnit: Getting started](https://scalameta.org/munit/docs/getting-started.html)
+  `FunSuite`, `test`, and `assertEquals(obtained, expected)`.
+- [MUnit: Declaring tests](https://scalameta.org/munit/docs/tests.html)
+  An empty test body still passes. Stop before async tests, tags, fixtures, and retries until a later unit.
+- [MUnit: Writing assertions](https://scalameta.org/munit/docs/assertions.html)
+  Diffs from `assertEquals`; `assert` has a weaker failure message; unrelated types do not compile.
 - [Cats Effect documentation](https://typelevel.org/cats-effect/)
   Reserved for the effects/concurrency phase; do not introduce it before the curriculum reaches that phase.
 - [http4s documentation](https://http4s.org/)

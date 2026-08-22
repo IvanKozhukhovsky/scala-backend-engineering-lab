@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MUnit and behavior-oriented unit tests</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-009 · Phase 03 · Testing and functional design</p>
+      <h1>MUnit and behavior-oriented unit tests</h1>
+      <p class="lede">
+        You can write a MUnit suite whose test names read as a spec, and whose
+        <code>assertEquals</code> checks a public function against a literal from that spec.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What println cannot pin</a></li>
+          <li><a href="#suite">FunSuite, test, assertEquals</a></li>
+          <li><a href="#behavior">A name is a specification</a></li>
+          <li><a href="#oracle">Independent expected values</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        In Day 08 the suite already said
+        <code>assertEquals(shown(Status.Open), "open")</code>.
+        Before reading on: if you change <code>show</code> to return
+        <code>Status.Open.toString</code>, which of those two arguments is the one that
+        <em>should still be</em> <code>"open"</code> — and why is a <code>println</code>
+        in <code>@main</code> a weaker way to notice the change?
+      </section>
+
+      <h2 id="suite">FunSuite, test, assertEquals</h2>
+      <p>
+        This workspace already depends on MUnit
+        <code>1.0.4</code> — the version the
+        <a href="https://scalameta.org/munit/docs/getting-started.html">getting-started guide</a>
+        shows.<a class="sidenote-ref" href="#sn-gs">1</a>
+        A suite is a class that extends <code>munit.FunSuite</code>.
+        Each <code>test("…")</code> is one case.
+        Scala CLI treats files under <code>src/test/scala</code> (and names ending
+        <code>.test.scala</code>) as test sources.<a class="sidenote-ref" href="#sn-cli">2</a>
+      </p>
+      <aside class="sidenote" id="sn-gs">
+        MUnit, <cite>Getting started</cite>:
+        <code>assertEquals(obtained, expected)</code>.
+        Docs use curly braces; this repo uses Scala 3’s colon syntax — same API.
+      </aside>
+      <aside class="sidenote" id="sn-cli">
+        <a href="https://scala-cli.virtuslab.org/docs/commands/test">Scala CLI: Test</a>.
+        Filter a suite with <code>--test-only</code>.
+      </aside>
+<pre><code>package day09
+
+def discounted(amountCents: Int, percent: Int): Int =
+  amountCents * (100 - percent) / 100
+
+class Day09Suite extends munit.FunSuite:
+  test("ten percent off 1000 cents is 900"):
+    assertEquals(discounted(1000, 10), 900)</code></pre>
+      <p>
+        First argument is the value you <em>got</em>; second is the value you
+        <em>meant</em>.
+        On failure MUnit prints a diff, not a bare “assertion failed” —
+        that is the library’s stated goal.<a class="sidenote-ref" href="#sn-assert">3</a>
+        <code>assert(discounted(1000, 10) == 900)</code> can be true or false;
+        <code>assertEquals</code> also shows <code>900</code> versus whatever you got.
+      </p>
+      <aside class="sidenote" id="sn-assert">
+        MUnit, <cite>Writing assertions</cite>:
+        <code>assertEquals</code> produces a diff.
+        Comparing unrelated types (for example <code>Right(42)</code> and <code>42</code>)
+        is a compile error.
+      </aside>
+      <p>
+        A backend test is the same shape as an HTTP contract later: call a public
+        function, compare the result to a value the spec already named.
+        Do not reach for fixtures, async tests, or exception interceptors in this unit.
+        Failure in this codebase is <code>Left</code>, not a thrown exception.
+      </p>
+
+      <h2 id="behavior">A name is a specification</h2>
+      <p>
+        <code>test("hello")</code> tells a reader nothing.
+        <code>test("ten percent off 1000 cents is 900")</code> is the requirement.
+        Group several <code>assertEquals</code> under one name when they are the
+        <em>same</em> behavior at different boundaries
+        (Day 07 already did this for <code>validPort</code>).
+      </p>
+      <p>
+        The call must be the public function a caller would use —
+        here <code>discounted</code>, later <code>parseLimit</code>.
+        If a test would break after a rename of a local variable but the result
+        for the caller is unchanged, the test was coupled to the implementation.
+      </p>
+      <p>
+        An empty <code>test</code> body still passes: MUnit only fails when the body
+        throws.<a class="sidenote-ref" href="#sn-empty">4</a>
+        A suite with no assertions is a green lie.
+      </p>
+      <aside class="sidenote" id="sn-empty">
+        MUnit, <cite>Declaring tests</cite>:
+        a basic test “passes as long as the test body does not crash with an exception.”
+      </aside>
+
+      <h2 id="oracle">Independent expected values</h2>
+      <p>
+        The expected argument must come from the spec, not from re-running the code:
+      </p>
+<pre><code>// independent — a person can check 900 without reading the function body
+assertEquals(discounted(1000, 10), 900)
+
+// tautology — this cannot disagree with the implementation
+assertEquals(
+  discounted(1000, 10),
+  1000 * (100 - 10) / 100
+)</code></pre>
+      <p>
+        Integer cents truncate toward zero: half of 5 cents is <code>2</code>, not
+        <code>2.5</code>. That is observable behavior. Pin it with the literal
+        <code>2</code>, not by copying the <code>/</code> expression into the test.
+      </p>
+      <p>
+        Worked example:
+        <a href="../src/main/scala/day09/Day09.scala"><code>Day09.scala</code></a>
+        and
+        <a href="../src/test/scala/day09/Day09Suite.test.scala"><code>Day09Suite.test.scala</code></a>.
+        Read the suite as a spec. Do not copy it into the exercise — the exercise
+        tests a different function.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read
+        <a href="https://scalameta.org/munit/docs/getting-started.html">MUnit — Getting started</a>
+        through the first <code>FunSuite</code> example, then
+        <a href="https://scalameta.org/munit/docs/assertions.html">Writing assertions</a>
+        on <code>assert</code> versus <code>assertEquals</code>.
+        Skim the first section of
+        <a href="https://scalameta.org/munit/docs/tests.html">Declaring tests</a>
+        (the empty-body rule). Stop before async tests, fixtures, tags, and retries.
+        Keep <a href="../reference/munit.html">the MUnit cheat sheet</a> open while you code.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is three words.</p>
+      <section class="quiz" data-quiz aria-label="MUnit retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A MUnit test whose body is empty:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">still reports pass</button>
+            <button type="button">skips the compiler</button>
+            <button type="button">fails the compiler</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="MUnit fails a test only when the body throws. No assertion means a green lie." data-bad="The file still compiles. An empty body is reported as a pass."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">In this workspace, <code>assertEquals</code> arguments are:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">obtained then expected</button>
+            <button type="button">expected then obtained</button>
+            <button type="button">either pairing allowed</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Getting started writes assertEquals(obtained, expected). The diff labels follow that order." data-bad="First is what you got; second is the spec literal. Swapping them still compiles and confuses the diff."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">The second argument to <code>assertEquals</code> should be:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">independent spec value</button>
+            <button type="button">recomputed code answer</button>
+            <button type="button">captured debug answers</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="A known-good literal from the spec can disagree with a buggy body. Copying the formula cannot." data-bad="Recomputing the implementation, or pasting a println, cannot catch a bug that both sides share."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A unit test should call:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">public named function</button>
+            <button type="button">private helper method</button>
+            <button type="button">internal class fields</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="The seam is the function a caller uses. Internals may change without changing behavior." data-bad="Private helpers and fields are implementation. Call the public function the spec names."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day09.Day09Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        <code>parseLimit</code> is already implemented in
+        <a href="../src/main/scala/day09/ExercisesDay09.scala"><code>ExercisesDay09.scala</code></a>.
+        Do not change that file. The skill is the tests.
+        Open
+        <a href="../src/test/scala/day09/ExercisesDay09Suite.test.scala"><code>ExercisesDay09Suite.test.scala</code></a>
+        and replace the placeholder.
+        Name behaviors. Use <code>assertEquals(obtained, expected)</code> with literals
+        such as <code>Left(LimitError.EmptyInput)</code> and <code>Right(1)</code> —
+        not a copy of the <code>match</code> in the source.
+        Cover empty/whitespace, a non-integer, below 1, above 100, the edges 1 and 100,
+        and a trimmed success.
+        Then run
+        <code>scala-cli test . --test-only 'day09.ExercisesDay09Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why is copying the formula a tautology?”) over “explain tests again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0004-traits-extension-methods-and-type-classes.html">Traits, extension methods and type classes</a>
+          · cheat sheet:
+          <a href="../reference/munit.html">MUnit</a>
+          · next unit is <code>scala-010</code> (property-based tests), not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

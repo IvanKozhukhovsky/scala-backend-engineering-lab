@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MUnit cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-009</p>
+      <h1>MUnit</h1>
+      <p class="lede">A suite names behavior; <code>assertEquals</code> checks a public result against a spec literal.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0005-munit-and-behavior-oriented-unit-tests.html">MUnit and behavior-oriented unit tests</a>.
+        Docs:
+        <a href="https://scalameta.org/munit/docs/getting-started.html">Getting started</a>,
+        <a href="https://scalameta.org/munit/docs/assertions.html">Assertions</a>,
+        <a href="https://scalameta.org/munit/docs/tests.html">Declaring tests</a>,
+        <a href="https://scala-cli.virtuslab.org/docs/commands/test">Scala CLI test</a>.
+      </p>
+
+      <h2>Shape</h2>
+<pre><code>class Day09Suite extends munit.FunSuite:
+  test("ten percent off 1000 cents is 900"):
+    assertEquals(discounted(1000, 10), 900)</code></pre>
+      <p>
+        <code>assertEquals(obtained, expected)</code>.
+        This repo pins MUnit <code>1.0.4</code> in <code>project.scala</code>.
+      </p>
+
+      <h2>Run</h2>
+<pre><code>scala-cli test .
+scala-cli test . --test-only 'day09.Day09Suite'</code></pre>
+      <p>
+        Test sources live under <code>src/test/scala</code> or end in
+        <code>.test.scala</code>.
+      </p>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Name the behavior a caller would care about.</li>
+        <li>Call the public function; compare to a literal from the spec.</li>
+        <li>Prefer <code>assertEquals</code> over <code>assert(a == b)</code> so failures show a diff.</li>
+        <li>Wrap <code>Either</code> results as <code>Left(…)</code> / <code>Right(…)</code> — a bare <code>Int</code> will not type-check against <code>Either[…, Int]</code>.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Leave a test body empty — it still passes.</li>
+        <li>Recompute the implementation as the expected value.</li>
+        <li>Assert on private helpers, fields, or <code>println</code> output.</li>
+        <li>Use <code>intercept</code> for domain failure; this track uses <code>Left</code>.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Property-based tests and fixtures are later units, not this cheat sheet.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

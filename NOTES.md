@@ -1,5 +1,6 @@
 # Teaching Notes
 
+- Prefer a short title plus one observable outcome before expanding a lesson or a next-unit report.
 - Do not skip curriculum units merely because later code appears to use the concept.
 - Prefer retrieval questions before re-explaining material that was already covered.
 - For an exercise, request or inspect the learner's attempt before offering a complete implementation.

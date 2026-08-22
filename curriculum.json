@@ -276,11 +276,36 @@
           "id": "scala-009",
           "sequence": 9,
           "title": "MUnit and behavior-oriented unit tests",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
-          "githubIssue": null
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0005-munit-and-behavior-oriented-unit-tests.html"
+            },
+            {
+              "type": "source",
+              "path": "reference/munit.html"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day09/Day09.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day09/ExercisesDay09.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day09/ExercisesDay09Suite.test.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0005-green-test-can-be-a-tautology.md"
+            }
+          ],
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/11"
         },
         {
           "id": "scala-010",
