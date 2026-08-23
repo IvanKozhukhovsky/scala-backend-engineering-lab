@@ -18,8 +18,8 @@ description: Review a learner-authored Scala exercise attempt without replacing 
 1. Restate the observable behaviour the exercise is meant to demonstrate.
 2. Identify the narrowest appropriate verification seam.
 3. Determine the appropriate verification oracle: automated test, review, learning record, demo, or a combination.
-4. Compile or run the smallest relevant verification when possible.
-5. If verification fails, explain the first root issue and give the smallest useful hint.
+4. Compile or run the smallest relevant verification when possible. Also run `scala-cli fmt --check` before treating the unit as ready to verify. Focused tests are not a substitute for the formatting gate CI runs.
+5. If verification fails, explain the first root issue and give the smallest useful hint. If `fmt --check` fails, do not silently reformat learner-owned code; point at the diff and tell the learner to run `scala-cli fmt` (or make the one-line alignment the checker shows).
 6. If verification passes, review correctness at boundaries and then idiomatic Scala appropriate to the learner's current phase.
 7. Ask at least one short retrieval or explanation question when conceptual understanding cannot be established from the learner-authored code alone.
 8. Prefer an independent `scala-reviewer` subagent for substantial exercises or capstone changes.

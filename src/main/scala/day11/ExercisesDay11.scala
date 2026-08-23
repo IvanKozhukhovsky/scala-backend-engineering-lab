@@ -20,7 +20,7 @@ enum DiscountError:
 def applyCoupon(invoice: Invoice, code: String): Either[DiscountError, Invoice] =
   invoice.appliedCode match
     case Some(_) => Left(DiscountError.AlreadyApplied)
-    case None =>
+    case None    =>
       if code == "SAVE10" then
         val sale = invoice.subtotalCents * 10 / 100
         Right(invoice.copy(invoice.subtotalCents, Some(code), sale))
