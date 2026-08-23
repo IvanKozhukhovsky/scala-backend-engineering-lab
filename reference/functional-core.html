@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Purity and functional core cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-011</p>
+      <h1>Purity and functional core</h1>
+      <p class="lede">Decisions return values. I/O stays in a thin shell around those values.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0007-immutability-pure-functions-and-functional-core.html">Immutability, pure functions and functional core</a>.
+        Docs:
+        <a href="https://docs.scala-lang.org/scala3/book/fp-immutable-values.html">Scala 3 Book — Immutable Values</a>,
+        <a href="https://docs.scala-lang.org/scala3/book/fp-pure-functions.html">Pure Functions</a>.
+      </p>
+
+      <h2>Immutable update</h2>
+<pre><code>val wallet = Wallet(1000)
+val next = wallet.copy(balanceCents = 600)
+// wallet is still Wallet(1000)</code></pre>
+      <ul>
+        <li><code>val</code> cannot be reassigned. <code>var</code> can — avoid it in the core.</li>
+        <li>Collections: <code>List</code> / <code>Vector</code> / immutable <code>Map</code>. Transform; do not mutate.</li>
+        <li>Case classes: <code>copy</code>, not a <code>var</code> field.</li>
+      </ul>
+
+      <h2>Pure function</h2>
+      <p>
+        Same inputs → same output. Output depends only on the arguments and the implementation.
+        No console, files, network, clock, hidden <code>var</code>, or mutated parameters.
+      </p>
+<pre><code>def debit(wallet: Wallet, amountCents: Int): Option[Wallet] =
+  if amountCents &lt;= 0 || amountCents &gt; wallet.balanceCents then None
+  else Some(wallet.copy(balanceCents = wallet.balanceCents - amountCents))</code></pre>
+      <p>
+        <code>Unit</code> is a warning: you probably called it for a side effect.
+        <code>println</code> and <code>System.currentTimeMillis</code> are impure.
+      </p>
+
+      <h2>Functional core, imperative shell</h2>
+<pre><code>def printDebit(wallet: Wallet, amountCents: Int): Unit =
+  debit(wallet, amountCents) match
+    case Some(next) =&gt; println(s"balance ${next.balanceCents}")
+    case None       =&gt; println("refused")</code></pre>
+      <ul>
+        <li>Core: values in, values out. Tests call this.</li>
+        <li>Shell: read the world, call the core, write the world. Few conditionals.</li>
+        <li>The core does not call the shell. If you need the time, the shell reads it and passes it in.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Keep domain rules in functions that return <code>Option</code> / <code>Either</code> / a new case class.</li>
+        <li>Assert against the core, not against captured stdout.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Mutate a <code>var</code> or a collection in place inside a decision.</li>
+        <li>Read the clock, a file, or the network from the core.</li>
+        <li>Introduce an <code>IO</code> type yet — that is a later curriculum phase.</li>
+        <li>Split packages and module boundaries here — that is <code>scala-012</code>.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Named pattern:
+          <a href="https://www.destroyallsoftware.com/talks/boundaries">Gary Bernhardt, <cite>Boundaries</cite></a>
+          (the “functional core, imperative shell” split).
+          The Scala 3 Book calls it a pure core with an impure wrapper.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

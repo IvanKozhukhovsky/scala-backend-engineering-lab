@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Immutability, pure functions and functional core</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-011 · Phase 03 · Testing and functional design</p>
+      <h1>Immutability, pure functions and functional core</h1>
+      <p class="lede">
+        You can keep a domain decision as a function of its arguments, and leave
+        <code>println</code> (later: HTTP, the clock, a database) in a thin shell around it.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">Why pageOffset was easy to test</a></li>
+          <li><a href="#immutable">Change by copying</a></li>
+          <li><a href="#pure">Same inputs, same output</a></li>
+          <li><a href="#shell">Pure cake, impure icing</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 10’s properties called <code>pageOffset(page, pageSize)</code> with generated integers
+        and checked a rule. No database, no captured stdout, no frozen clock.
+        Before reading on: what would those properties stop being able to do if
+        <code>pageOffset</code> printed a log line, or read <code>System.currentTimeMillis</code>,
+        or subtracted from a <code>var balance</code> in the same file?
+      </section>
+
+      <h2 id="immutable">Change by copying</h2>
+      <p>
+        Day 04 already did this: <code>alice.copy(age = 24)</code> produced a second
+        <code>User</code> while <code>alice</code> stayed 23.
+        That is the Scala 3 Book’s rule for functional code: <code>val</code>, immutable
+        collections, case classes with <code>copy</code>. You do not mutate the value in
+        place.<a class="sidenote-ref" href="#sn-imm">1</a>
+      </p>
+      <aside class="sidenote" id="sn-imm">
+        Scala 3 Book, <cite>Immutable Values</cite>:
+        create <code>val</code>s; use <code>List</code> / <code>Vector</code> / immutable
+        <code>Map</code>; update a case class with <code>copy</code>.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>var balance = 1000
+balance -= 400</code>
+    <span>The old amount is gone. A test has to reset the var.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>val wallet = Wallet(1000)
+val next = wallet.copy(
+  balanceCents = 600
+)</code>
+    <span>Both values exist. The test can see the original.</span>
+  </div>
+  <figcaption>A backend “update” is a new value, not an overwrite.</figcaption>
+</figure>
+      <p>
+        <code>filter</code> and <code>map</code> on a <code>List</code> are the same idea:
+        they return another list. The input list is still there. You already wrote that
+        pipeline in Days 02–03.
+      </p>
+
+      <h2 id="pure">Same inputs, same output</h2>
+      <p>
+        A function is <em>pure</em> when the result depends only on the arguments and the
+        implementation, and the function does not change the world around it.
+        Call it with <code>2</code> forever: you keep getting <code>4</code>.<a class="sidenote-ref" href="#sn-pure">2</a>
+      </p>
+      <aside class="sidenote" id="sn-pure">
+        Scala 3 Book, <cite>Pure Functions</cite>:
+        no mutated parameters, no hidden state, no “back doors” to console, files,
+        databases, or the network.
+      </aside>
+      <p>
+        <code>clamp</code>, <code>pageOffset</code>, and <code>parseLimit</code> were already
+        pure — that is why MUnit and ScalaCheck could treat them as a spec.
+        The Book’s impure list is the opposite of that:
+        <code>println</code>, <code>System.currentTimeMillis</code>, throwing
+        <code>sys.error</code>. A return type of <code>Unit</code> is a warning: you
+        probably called it only for a side effect.
+      </p>
+<pre><code>case class Wallet(balanceCents: Int)
+
+def debit(wallet: Wallet, amountCents: Int): Option[Wallet] =
+  if amountCents &lt;= 0 || amountCents &gt; wallet.balanceCents then None
+  else Some(wallet.copy(balanceCents = wallet.balanceCents - amountCents))</code></pre>
+      <p>
+        <code>debit(Wallet(1000), 400)</code> is always <code>Some(Wallet(600))</code>.
+        The input wallet is unchanged. There is nothing to mock.
+      </p>
+
+      <h2 id="shell">Pure cake, impure icing</h2>
+      <p>
+        A service that never talks to the world is useless. The Book’s recommendation is
+        the whole skill for this unit: write a <em>core</em> of pure functions, then wrap
+        it with an impure layer that reads and writes.<a class="sidenote-ref" href="#sn-cake">3</a>
+        Gary Bernhardt named that split
+        <em>functional core, imperative shell</em>.<a class="sidenote-ref" href="#sn-fcis">4</a>
+      </p>
+      <aside class="sidenote" id="sn-cake">
+        Scala 3 Book, <cite>Pure Functions</cite>,
+        “But impure functions are needed…”:
+        “a core of pure functions that are wrapped with other functions to interact
+        with the outside world” — “impure icing on top of a pure cake.”
+      </aside>
+      <aside class="sidenote" id="sn-fcis">
+        Gary Bernhardt, <cite>Boundaries</cite> (2012).
+        The core talks in values; the shell talks to stdin, stdout, disk, and the network.
+        Tests of the core need no doubles. Stop before an <code>IO</code> type —
+        the Book flags that as later, and this curriculum does too
+        (<code>scala-014</code>).
+      </aside>
+<pre><code>def printDebit(wallet: Wallet, amountCents: Int): Unit =
+  debit(wallet, amountCents) match
+    case Some(next) =&gt; println(s"balance ${next.balanceCents}")
+    case None       =&gt; println("refused")</code></pre>
+      <p>
+        <code>printDebit</code> is allowed to be boring: one call, one match, I/O.
+        The rule “is 400 allowed?” lives in <code>debit</code>.
+        Tests call <code>debit</code>. If a later handler needs the time, the
+        <em>shell</em> reads the clock and passes <code>now</code> in — the core still
+        does not reach outside.
+      </p>
+      <p>
+        Worked example:
+        <a href="../src/main/scala/day11/Day11.scala"><code>Day11.scala</code></a>
+        and
+        <a href="../src/test/scala/day11/Day11Suite.test.scala"><code>Day11Suite.test.scala</code></a>.
+        Read the suite as a spec. The exercise is a different type.
+        Keep
+        <a href="../reference/functional-core.html">the purity cheat sheet</a>
+        open while you code.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read the Scala 3 Book
+        <a href="https://docs.scala-lang.org/scala3/book/fp-immutable-values.html">Immutable Values</a>
+        (the whole page) and
+        <a href="https://docs.scala-lang.org/scala3/book/fp-pure-functions.html">Pure Functions</a>
+        through the key points, including the impure-wrapper paragraph.
+        Treat the <code>IO</code> Monad sentence as a pointer to a later phase; do not
+        follow it now.
+        Optional name for the same split:
+        <a href="https://www.destroyallsoftware.com/talks/boundaries">Bernhardt, <cite>Boundaries</cite></a>.
+        The DAS screencast of that name is paywalled — the Book is enough.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Purity retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A pure function’s output depends on:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">its declared input arguments</button>
+            <button type="button">the current system clock</button>
+            <button type="button">a hidden mutable variable</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Same arguments, same result. Clock, console, and vars are back doors." data-bad="currentTimeMillis and a var are exactly the hidden inputs the Book forbids."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">To “change” a case class in the core you:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">copy with new fields</button>
+            <button type="button">reassign a var field</button>
+            <button type="button">mutate the original list</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="copy returns another value. The input is still there for the test to see." data-bad="A var field or an in-place list edit destroys the previous value."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt"><code>println</code> belongs in:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">the thin imperative shell</button>
+            <button type="button">the inner functional core</button>
+            <button type="button">a type-class given instance</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Icing, not cake. The core returns a value; the shell prints it." data-bad="A given is how Day 08 added show. println is I/O, not a type-class instance."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A test of a debit rule should call:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">only the pure core</button>
+            <button type="button">only the println wrapper</button>
+            <button type="button">only the current clock</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Day11Suite asserts on debit, not on captured stdout from printDebit." data-bad="Testing the wrapper means capturing prints. The clock would make the test flaky."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day11.Day11Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>applyCoupon</code> in
+        <a href="../src/main/scala/day11/ExercisesDay11.scala"><code>ExercisesDay11.scala</code></a>.
+        Leave <code>printApply</code> as the shell.
+        The spec is
+        <a href="../src/test/scala/day11/ExercisesDay11Suite.test.scala"><code>ExercisesDay11Suite.test.scala</code></a>
+        — do not edit the tests to match a weaker function.
+        Return a new <code>Invoice</code>. If a coupon is already applied, refuse before
+        looking at the new code. Truncation of a tiny subtotal is the Day 09 rule, not a bug.
+        Then run
+        <code>scala-cli test . --test-only 'day11.ExercisesDay11Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why is AlreadyApplied checked first?”) over “explain purity again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0006-property-based-testing-and-invariants.html">Property-based testing and invariants</a>
+          · cheat sheet:
+          <a href="../reference/functional-core.html">Purity and functional core</a>
+          · next unit is <code>scala-012</code> (modules and dependency direction), not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

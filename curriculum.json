@@ -346,11 +346,48 @@
           "id": "scala-011",
           "sequence": 11,
           "title": "Immutability, pure functions and functional core / imperative shell",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
-          "githubIssue": null
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0007-immutability-pure-functions-and-functional-core.html"
+            },
+            {
+              "type": "source",
+              "path": "reference/functional-core.html"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day11/Day11.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/test/scala/day11/Day11Suite.test.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day11/ExercisesDay11.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/test/scala/day11/ExercisesDay11Suite.test.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day11/ExercisesDay11Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day11/ExercisesDay11.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0007-copy-keeps-previous-and-current.md"
+            }
+          ],
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/13"
         },
         {
           "id": "scala-012",

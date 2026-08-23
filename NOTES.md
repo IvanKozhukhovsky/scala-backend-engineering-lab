@@ -8,3 +8,4 @@
 - A file existing is evidence of an attempt, not proof of mastery.
 - Verification should use objective evidence where possible: tests, compiler output, a code review, or an explanation by the learner.
 - MUnit is pinned at `1.0.4`. `munit-scalacheck` has no `1.0.4`; the 1.0-line pin is `1.0.0`.
+- `scala-011` teaches purity at function scale: core returns values, shell does I/O. Package/module boundaries wait for `scala-012`. Do not introduce `IO` / Cats Effect (`scala-014`).

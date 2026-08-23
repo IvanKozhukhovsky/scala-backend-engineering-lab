@@ -56,6 +56,14 @@
   Primary narrative for `forAll`, `==>` (including “gave up”), `Gen.choose`, and shrinking. Stop before combining properties, custom `Arbitrary`, and custom `Shrink`.
 - [ScalaCheck](https://github.com/typelevel/scalacheck)
   Upstream library pulled transitively (this repo: ScalaCheck `1.18.0` via `munit-scalacheck` `1.0.0`).
+- [Scala 3 Book: Immutable Values](https://docs.scala-lang.org/scala3/book/fp-immutable-values.html)
+  Primary narrative for `val`, immutable collections, and case-class `copy`. Stop after the `copy` example; skip the Data Modeling cross-link until a later unit needs it.
+- [Scala 3 Book: Pure Functions](https://docs.scala-lang.org/scala3/book/fp-pure-functions.html)
+  Definition of purity, impure examples (`println`, `currentTimeMillis`), and the pure-core / impure-wrapper split. Treat the `IO` Monad sentence as out of scope until the effects phase.
+- [Scala 3 Book: What is Functional Programming?](https://docs.scala-lang.org/scala3/book/fp-what-is-fp.html)
+  Short framing only: expressions that return values rather than statements that change program state.
+- [Gary Bernhardt: Boundaries](https://www.destroyallsoftware.com/talks/boundaries)
+  Public talk that names the functional-core / imperative-shell split. Optional; the Scala 3 Book is the assigned primary source. The DAS screencast of that name is paywalled — do not assign it.
 - [Cats Effect documentation](https://typelevel.org/cats-effect/)
   Reserved for the effects/concurrency phase; do not introduce it before the curriculum reaches that phase.
 - [http4s documentation](https://http4s.org/)
