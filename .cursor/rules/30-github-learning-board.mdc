@@ -1,0 +1,13 @@
+---
+description: Keep GitHub learning issues and the Todo / In Progress / Done board aligned with curriculum.json.
+alwaysApply: true
+---
+
+# GitHub learning board
+
+- Each active curriculum unit has one GitHub issue with the `learning` label. Store its URL in `githubIssue`.
+- Entering a new phase: create issues for **every unit in that phase** only when previous `learning` issues are closed. They start in **Todo** (open, unassigned). Assign the first unverified unit (**In Progress**).
+- `/next-lesson` activates the next Todo card after the previous one is Done. Do not teach inside that command.
+- `/verify` first writes lifecycle checkboxes from `curriculum.json`, then closes the working issue (`state_reason=completed`). That is the Done transition.
+- `/progress` syncs checkboxes automatically, then **asks** only about leftover open/closed mismatches.
+- Never leave Done-card acceptance boxes empty. Follow `.agents/skills/github-learning-board/SKILL.md`.

@@ -76,7 +76,7 @@ The curriculum contains 32 ordered units across eight phases: Scala fundamentals
 
 ## GitHub Project
 
-After publishing the repository, create a user-level project named **Scala Backend Engineering Roadmap**. Use the Board view for day-to-day status, a sequence-sorted table for curriculum coverage, and later a roadmap for capstone milestones. Exact fields and workflow are in `docs/github-project-setup.md`.
+After publishing the repository, create a user-level project named **Scala Backend Engineering Roadmap**. `/next-lesson` creates `learning` issues for the current phase and puts the first unit In Progress; `/verify` closes a verified unit (Done); `/progress` reconciles leftover cards. Exact fields and GitHub workflows are in `docs/github-project-setup.md`.
 
 ## Portfolio status
 

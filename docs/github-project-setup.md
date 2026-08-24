@@ -1,76 +1,68 @@
 # GitHub Project Setup
 
-The repository remains the source of truth for curriculum state. GitHub Projects is the public execution and visualization layer.
+The repository remains the source of truth for curriculum state. GitHub Issues and the linked Project board are the public execution view.
 
-## Project
+Cursor commands drive the board:
 
-Create a user-level GitHub Project named **Scala Backend Engineering Roadmap** and link this repository to it.
+| Command | Board effect |
+|---|---|
+| `/next-lesson` | If all previous `learning` issues are closed, create one issue per unit in the new phase (Todo). Assign the first unverified unit (In Progress). Write each URL to `githubIssue`. |
+| `/progress` | Rewrite lifecycle checkboxes from `curriculum.json`. Ask only about leftover open/closed mismatches. |
+| `/verify` | After quality gates pass, tick acceptance boxes from curriculum evidence, then close the issue (Done). |
 
-Start with a single **Board** view grouped by `Status`.
+The agent uses GitHub MCP. Local planning/recording is `python3 scripts/github_board.py`.
 
-Use three statuses only:
+## One-time Project setup
 
-* `Todo` — the unit is queued but active work has not started.
-* `In Progress` — this is the unit currently being learned, exercised, or verified.
-* `Done` — the unit has been verified and its issue has been closed.
+Create a user-level GitHub Project named **Scala Backend Engineering Roadmap** (the title in `curriculum.json` → `github.projectTitle`) and link this repository.
 
-Keep work in progress small. Normally, only one learning unit should be `In Progress`.
+Start with a single **Board** view grouped by `Status`:
 
-Do not create GitHub issues for the entire curriculum in advance. Create an issue when a curriculum unit becomes active or is one of the immediately pending verification units.
+* `Todo` — queued units in the current phase
+* `In Progress` — the unit currently being learned
+* `Done` — verified units whose issues are closed
 
-A **Curriculum** table view may be added later when the number of completed and planned units becomes large enough that a board is no longer sufficient.
+Keep work in progress small. Normally only one learning unit is `In Progress`.
 
-A **Roadmap** view should only be added when target dates or larger backend/capstone milestones start to matter.
+Do not create issues for the entire curriculum in advance. `/next-lesson` creates **all units of the newly entered phase** once every older `learning` issue is closed.
+
+The GitHub MCP plugin in this workspace can create, assign, update issue bodies, and close issues. It cannot set Project Status directly. Add these Project workflows once so columns stay in sync:
+
+1. **Auto-add** issues from `IvanKozhukhovsky/scala-backend-engineering-lab` with the `learning` label.
+2. Item added to the project → `Status = Todo`.
+3. Issue assigned → `Status = In Progress`.
+4. Issue closed → `Status = Done`.
+
+Path in the GitHub UI: Project → `...` → Workflows.
+
+The PAT used by GitHub MCP needs **Issues: Read and write**. Project column movement is performed by those workflows, not by extra Projects API scopes.
 
 ## Fields
 
 The only required project field is:
 
-* `Status`: `Todo`, `In Progress`, `Done`.
+* `Status`: `Todo`, `In Progress`, `Done`
 
 Do not duplicate `lessonStatus`, `exerciseStatus`, or `verificationStatus` as GitHub Project fields. Those states belong to `curriculum.json` and the learning-unit issue checklist.
 
-Optional fields may be introduced later when they provide real value:
-
-* `Phase`
-* `Target date`
-* `Evidence`
-
-Avoid adding fields only for documentation purposes.
-
 ## Issues
 
-Create one issue per active curriculum unit, not separate issues for the lesson, exercise, and verification stages.
+Create one issue per curriculum unit, not separate issues for lesson, exercise, and verification.
 
-The issue template in `.github/ISSUE_TEMPLATE/lesson.yml` contains the lifecycle checklist.
+The template in `.github/ISSUE_TEMPLATE/lesson.yml` is the manual fallback. `/next-lesson` creates the same shape of issue via MCP:
 
-Each learning-unit issue should use the `learning` label so that it can be automatically added to the project.
+* title: `[LEARN] scala-0xx — <title>`
+* label: `learning`
+* body: curriculum id, phase, lifecycle checklist (boxes filled by `/progress` and `/verify` from `curriculum.json`)
 
-The issue represents the complete lifecycle of one curriculum unit:
+Do not tick those boxes by hand. `python3 scripts/github_board.py sync-body` derives them from lesson/exercise/verification status and evidence.
 
-1. Learn or revisit the material.
-2. Attempt retrieval or explanation without relying on notes.
-3. Complete the independent exercise.
-4. Run focused verification.
-5. Record verification evidence in `curriculum.json`.
-6. Run `python3 scripts/progress.py check`.
-7. Complete the issue checklist.
-8. Close the issue as completed.
-
-When work begins on a unit, move it from `Todo` to `In Progress`.
-
-A unit moves to `Done` only after its verification state in `curriculum.json` is `verified`.
-
-Closing the issue should normally move the corresponding project item to `Done` through GitHub Project automation.
+A unit moves to Done only after `verificationStatus` is `verified` **and** `/verify` has closed the issue (`state_reason=completed`).
 
 ## Source of truth
 
-`curriculum.json` is authoritative for learning progress.
+`curriculum.json` is authoritative. Store the issue URL in `githubIssue`.
 
-GitHub Projects visualizes current work but must not become a second independent source of curriculum state.
+If GitHub and `curriculum.json` disagree, update GitHub to match the curriculum, after asking the learner when leftover cards are still open.
 
-If GitHub Project state and `curriculum.json` disagree, update GitHub to reflect `curriculum.json`, not the other way around.
-
-If a curriculum unit contains a `githubIssue` field, store the corresponding GitHub issue URL there for traceability.
-
-GitHub is intentionally not required for local progress, so Cursor can maintain and verify the learning state without GitHub account access.
+Local `python3 scripts/progress.py check` does not require GitHub. Board commands do.

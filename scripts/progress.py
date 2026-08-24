@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 import sys
 
@@ -14,6 +15,7 @@ ALLOWED = {
     "exerciseStatus": {"notStarted", "inProgress", "completed"},
     "verificationStatus": {"notStarted", "pending", "verified"},
 }
+ISSUE_URL_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/issues/\d+$")
 
 
 def load() -> dict:
@@ -63,6 +65,32 @@ def validate(data: dict) -> list[str]:
             if not evidence_types.intersection({"test", "review", "learningRecord", "demo"}):
                 errors.append(f"{lesson_id}: verified status requires verification evidence")
 
+        issue = lesson.get("githubIssue")
+        if issue is not None:
+            if not isinstance(issue, str) or not ISSUE_URL_RE.match(issue):
+                errors.append(f"{lesson_id}: githubIssue must be a GitHub issue URL or null")
+            else:
+                match = ISSUE_URL_RE.match(issue)
+                github = data.get("github")
+                if isinstance(github, dict) and match:
+                    owner, repo = match.group(1), match.group(2)
+                    if owner != github.get("owner") or repo != github.get("repo"):
+                        errors.append(
+                            f"{lesson_id}: githubIssue must belong to {github.get('owner')}/{github.get('repo')}"
+                        )
+
+    github = data.get("github")
+    if github is not None:
+        if not isinstance(github, dict):
+            errors.append("github must be an object")
+        else:
+            for key in ("owner", "repo", "label", "assignee"):
+                if not github.get(key):
+                    errors.append(f"github.{key} is required")
+            expected_repo = f"{github.get('owner')}/{github.get('repo')}"
+            if data.get("repository") and data.get("repository") != expected_repo:
+                errors.append("github.owner/repo must match repository")
+
     if sequences and sorted(sequences) != list(range(1, len(sequences) + 1)):
         errors.append("Lesson sequence numbers must be contiguous and start at 1")
 
@@ -101,9 +129,13 @@ def show(data: dict) -> None:
         for lesson in phase["lessons"]:
             status = lesson["verificationStatus"]
             marker = "✓" if status == "verified" else "~" if lesson["exerciseStatus"] == "completed" else "·"
+            issue = lesson.get("githubIssue")
+            issue_part = ""
+            if isinstance(issue, str) and "/issues/" in issue:
+                issue_part = f" issue=#{issue.rsplit('/', 1)[-1]}"
             print(
                 f"  {marker} {lesson['id']} {lesson['title']} | "
-                f"lesson={lesson['lessonStatus']} exercise={lesson['exerciseStatus']} verify={status}"
+                f"lesson={lesson['lessonStatus']} exercise={lesson['exerciseStatus']} verify={status}{issue_part}"
             )
         print()
 

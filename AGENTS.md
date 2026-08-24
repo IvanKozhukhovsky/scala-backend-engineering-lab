@@ -23,3 +23,4 @@ Before claiming code work is complete, run `python3 scripts/verify.py` when the 
 - Automated tests live under `src/test/scala/`.
 - Teaching artifacts live in `lessons/`, `reference/`, and `learning-records/`.
 - AI/Cursor configuration lives under `.cursor/` and `.agents/`.
+- GitHub learning-board workflow: `.agents/skills/github-learning-board/SKILL.md` and `docs/github-project-setup.md`. `/next-lesson`, `/progress`, and `/verify` keep `learning` issues and `githubIssue` in sync.

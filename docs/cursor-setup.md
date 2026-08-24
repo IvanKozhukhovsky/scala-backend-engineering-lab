@@ -29,15 +29,19 @@ Do not add the full `code-review` workflow yet. This repository starts with the 
 
 - `AGENTS.md` — concise project-wide contract.
 - `.cursor/rules/` — persistent/scoped constraints for learning, Scala code, and public-repository quality.
-- `.agents/skills/` — portable custom workflows for progress tracking and exercise review.
+- `.agents/skills/` — portable custom workflows for progress tracking, exercise review, and the GitHub learning board.
 - `.cursor/commands/` — explicit convenience commands such as `/next-lesson`, `/progress`, and `/verify`.
 - `.cursor/agents/scala-reviewer.md` — isolated review context for substantial exercise or backend changes.
 
-## Intentionally not enabled yet
+## Integrations
+
+GitHub MCP is enabled for the learning board. Everything below stays out until it matches a real curriculum need.
 
 ### MCP
 
-No MCP server is required while the project is local Scala code. Add an MCP integration only when it provides a real capability the repository needs, for example PostgreSQL inspection during the persistence phase or an observability platform during production work.
+The official GitHub MCP plugin is required for `/next-lesson`, `/progress`, and `/verify` to create, assign, and close `learning` issues. Local progress checks (`python3 scripts/progress.py check`) still work without GitHub.
+
+Do not add other MCP servers until they match a real curriculum need, for example PostgreSQL inspection during the persistence phase.
 
 ### Plugins
 

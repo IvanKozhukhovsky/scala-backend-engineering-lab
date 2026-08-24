@@ -16,7 +16,7 @@ scala-backend-engineering-lab/
 ├── .cursor/commands/        explicit convenience workflows
 ├── .cursor/agents/          isolated specialist contexts
 ├── .github/                 CI and public workflow templates
-├── scripts/                 deterministic progress/verification tools
+├── scripts/                 deterministic progress/verification tools (`progress.py`, `verify.py`, `github_board.py`)
 └── docs/                    engineering and portfolio documentation
 ```
 

@@ -24,4 +24,6 @@ Acceptable evidence types in `curriculum.json` are `test`, `review`, `learningRe
 
 Use `python3 scripts/progress.py show` to display progress and the next required action. Use `python3 scripts/progress.py check` in CI. Status changes can be made through `python3 scripts/progress.py set` so invalid transitions are rejected.
 
+GitHub Issues with the `learning` label, plus a Project board (`Todo` / `In Progress` / `Done`), visualize the current phase. `/next-lesson` opens the phase's issues and puts the first unit In Progress. `/verify` closes a verified unit's issue (Done). `/progress` reconciles GitHub with `curriculum.json` and asks before touching leftover open cards. Details: `docs/github-project-setup.md`.
+
 The curriculum is ordered by default. This is the anti-skip mechanism: later verification is rejected while an earlier unit is still unverified. If the learning plan genuinely changes, edit the curriculum deliberately rather than bypassing the invariant.

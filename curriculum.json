@@ -3,6 +3,14 @@
   "project": "Scala Backend Engineering Lab",
   "repository": "IvanKozhukhovsky/scala-backend-engineering-lab",
   "ordered": true,
+  "github": {
+    "owner": "IvanKozhukhovsky",
+    "repo": "scala-backend-engineering-lab",
+    "label": "learning",
+    "assignee": "IvanKozhukhovsky",
+    "projectTitle": "Scala Backend Engineering Roadmap",
+    "boardStatuses": ["Todo", "In Progress", "Done"]
+  },
   "statusDefinitions": {
     "lessonStatus": [
       "planned",
