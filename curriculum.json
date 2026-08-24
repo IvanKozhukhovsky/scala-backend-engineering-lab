@@ -9,7 +9,11 @@
     "label": "learning",
     "assignee": "IvanKozhukhovsky",
     "projectTitle": "Scala Backend Engineering Roadmap",
-    "boardStatuses": ["Todo", "In Progress", "Done"]
+    "boardStatuses": [
+      "Todo",
+      "In Progress",
+      "Done"
+    ]
   },
   "statusDefinitions": {
     "lessonStatus": [
@@ -443,11 +447,44 @@
           "id": "scala-013",
           "sequence": 13,
           "title": "Futures, execution contexts and concurrency fundamentals",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
-          "githubIssue": null
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0009-futures-execution-contexts-and-concurrency.html"
+            },
+            {
+              "type": "source",
+              "path": "reference/futures.html"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day13/Day13.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day13/Day13Suite.test.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day13/ExercisesDay13.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day13/ExercisesDay13Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day13/ExercisesDay13.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0009-successful-does-not-schedule.md"
+            }
+          ],
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/15"
         },
         {
           "id": "scala-014",
@@ -457,7 +494,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/16"
         },
         {
           "id": "scala-015",
@@ -467,7 +504,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/17"
         },
         {
           "id": "scala-016",
@@ -477,7 +514,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/18"
         }
       ]
     },

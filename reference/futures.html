@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Futures and ExecutionContext cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-013</p>
+      <h1>Futures and ExecutionContext</h1>
+      <p class="lede">A Future is a placeholder for a value that will exist later. Constructing it starts the work.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0009-futures-execution-contexts-and-concurrency.html">Futures, execution contexts and concurrency fundamentals</a>.
+        Docs:
+        <a href="https://docs.scala-lang.org/overviews/core/futures.html">Futures and Promises</a>,
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/concurrent/Future$.html">Future.apply</a>,
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/concurrent/ExecutionContext.html">ExecutionContext</a>,
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/concurrent/Await$.html">Await</a>.
+      </p>
+
+      <h2>Placeholder</h2>
+<pre><code>def fetchRate(code: String)(using ExecutionContext): Future[Option[Int]] =
+  Future {
+    rateOf(code)
+  }</code></pre>
+      <ul>
+        <li>A <code>Future[T]</code> holds a <code>T</code> that may not be ready yet, or an exception.</li>
+        <li><code>Future.apply</code> <em>starts</em> the body on an <code>ExecutionContext</code> and returns immediately.</li>
+        <li><code>Future.successful(x)</code> is already done. It does not schedule work.</li>
+      </ul>
+
+      <h2>ExecutionContext</h2>
+      <ul>
+        <li>Think of it as a thread pool: it decides where the body and later <code>map</code>s run.</li>
+        <li>Library methods take <code>(using ExecutionContext)</code>. Do not import <code>Implicits.global</code> inside them.</li>
+        <li>Tests and <code>@main</code> import <code>ExecutionContext.Implicits.global</code> at the edge.</li>
+      </ul>
+
+      <h2>map, then maybe Await</h2>
+<pre><code>fetchRate(code).map(maybe => maybe.map(_ * amount))
+
+import ExecutionContext.Implicits.global
+Await.result(fetchConverted("EUR", 10), 1.second)</code></pre>
+      <ul>
+        <li><code>map</code> transforms a successful value. A failed future stays failed. Needs an <code>ExecutionContext</code>.</li>
+        <li><code>Await.result</code> blocks the current thread until the value or the timeout. Tests and mains, not the core, not inside <code>map</code>.</li>
+        <li>MUnit may instead return the <code>Future</code> from the test body and wait for you.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Keep the domain lookup as a pure <code>Option</code> / <code>Either</code> function. Wrap it in <code>Future { }</code>.</li>
+        <li>Create two futures before combining them if you want the work to overlap.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Treat a <code>Future</code> as a lazy recipe. The body starts at construction.</li>
+        <li>Call <code>Await</code> or <code>Thread.sleep</code> inside the fetch functions.</li>
+        <li>Introduce an <code>IO</code> type — that is <code>scala-014</code>.</li>
+        <li>Write a <code>Promise</code>, a custom pool, or <code>blocking { }</code> in this unit.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Purity at function scale:
+          <a href="functional-core.html">Purity and functional core</a>.
+          Packages:
+          <a href="modules-boundaries.html">Modules and dependency direction</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

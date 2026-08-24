@@ -46,3 +46,15 @@ _Avoid_: `case _` on a domain Enum (it hides a new case)
 **Import**:
 A compile-time dependency: the file that writes `import` depends on the named package.
 _Avoid_: treating import direction as the direction values flow at runtime
+
+**Future**:
+A placeholder for a value that will be available later, or an exception if the body failed.
+_Avoid_: treating construction as a lazy recipe that starts only at `Await`
+
+**ExecutionContext**:
+Where a `Future` body and later `map`s run, typically a thread pool. Pass it with `using`; import `global` only at the test or main edge.
+_Avoid_: hardcoding `Implicits.global` inside the fetch
+
+**Await**:
+Blocks the current thread until a `Future` completes or the timeout fires.
+_Avoid_: calling it inside `fetchUnitPrice` / `map`

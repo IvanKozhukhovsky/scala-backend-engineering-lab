@@ -68,8 +68,22 @@
   Primary narrative for `package`, `import pkg.Name`, `import pkg.{A, B}`, and `import pkg.*`. Stop before renaming, hiding, default imports, `_root_`, and importing givens.
 - [Tour of Scala: Packages and Imports](https://docs.scala-lang.org/tour/packages-and-imports.html)
   Directory convention (package name = folder) and that same-package members need no import. Skip nested curly-brace packages and `_root_` unless a later unit needs them.
+- [Scala docs: Futures and Promises](https://docs.scala-lang.org/overviews/core/futures.html)
+  Primary narrative for this unit: `Future` as a placeholder, `ExecutionContext` as a thread pool, `Future.apply` starts the body, `map` as a combinator. Stop before Promises, Blocking, custom executors, and treating `onComplete` as the main style.
+- [Scala 3.3.8 API: Future companion](https://www.scala-lang.org/api/3.3.8/scala/concurrent/Future$.html)
+  Authoritative wording: `apply` *starts* an asynchronous computation. `successful` is already completed.
+- [Scala 3.3.8 API: Future](https://www.scala-lang.org/api/3.3.8/scala/concurrent/Future.html)
+  `map` / `flatMap` contracts and that callbacks need an `ExecutionContext`.
+- [Scala 3.3.8 API: ExecutionContext](https://www.scala-lang.org/api/3.3.8/scala/concurrent/ExecutionContext.html)
+  Pass the context into methods (`using` / implicit) rather than hardcoding `Implicits.global` inside library code.
+- [Scala 3.3.8 API: Await](https://www.scala-lang.org/api/3.3.8/scala/concurrent/Await$.html)
+  `result` blocks the calling thread; useful for tests, discouraged as the normal way to compose work.
+- [Scala Book: Futures](https://docs.scala-lang.org/overviews/scala-book/futures.html)
+  Gentler walkthrough, including “starts as soon as you construct it.” Optional; the page is the Scala 2 Book and points to a newer edition. Stop before Akka and GUI demos.
+- [MUnit: Declaring tests](https://scalameta.org/munit/docs/tests.html)
+  A test body may return a `Future`; MUnit waits. This unit’s suites use `Await.result` so the blocking edge stays visible.
 - [Cats Effect documentation](https://typelevel.org/cats-effect/)
-  Reserved for the effects/concurrency phase; do not introduce it before the curriculum reaches that phase.
+  Reserved for `scala-014`; do not introduce `IO` in the Futures unit.
 - [http4s documentation](https://http4s.org/)
   Candidate primary source for the HTTP backend phase; the exact backend stack is chosen when that phase begins.
 

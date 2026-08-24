@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Futures, execution contexts and concurrency fundamentals</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-013 · Phase 04 · Concurrency and effects</p>
+      <h1>Futures, execution contexts and concurrency fundamentals</h1>
+      <p class="lede">
+        You can start a lookup on a thread pool, get back a <code>Future</code> immediately,
+        transform the eventual value with <code>map</code>, and block only at the edge of a test or a main.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">When debit did not need a pool</a></li>
+          <li><a href="#placeholder">A placeholder, already started</a></li>
+          <li><a href="#context">The ExecutionContext is the pool</a></li>
+          <li><a href="#map">map the value; Await only at the edge</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 08’s <code>showAll</code> needed a given <code>Showable</code> in scope.
+        Day 11’s <code>debit</code> returned <code>Option[Wallet]</code> with no clock and no thread pool.
+        Before reading on: if you write <code>Future { rateOf("EUR") }</code>, does
+        <code>rateOf</code> wait until someone calls <code>Await</code>, or does it start now?
+        What extra thing does that <code>Future { }</code> need that <code>debit</code> did not?
+      </section>
+
+      <h2 id="placeholder">A placeholder, already started</h2>
+      <p>
+        A <code>Future[T]</code> is a placeholder for a <code>T</code> that may not exist yet.
+        When the computation finishes, the future is completed with that value, or failed
+        with the exception the body threw.<a class="sidenote-ref" href="#sn-def">1</a>
+      </p>
+      <aside class="sidenote" id="sn-def">
+        Scala API, <cite>Future</cite>:
+        “a value which may or may not currently be available, but will be available at some
+        point, or an exception if that value could not be made available.”
+      </aside>
+      <p>
+        You do not start it later. <code>Future.apply</code>
+        <em>starts</em> the body on an execution context and returns the placeholder at once.
+        The work is already in flight while you still hold a <code>Future</code>.<a class="sidenote-ref" href="#sn-apply">2</a>
+      </p>
+      <aside class="sidenote" id="sn-apply">
+        Scala API, <cite>Future.apply</cite>:
+        “Starts an asynchronous computation and returns a Future instance with the result of
+        that computation.”
+        The Scala Book says the same: a future “immediately begins running the block of code
+        inside the curly braces.”
+      </aside>
+<pre><code>def fetchRate(code: String)(using ExecutionContext): Future[Option[Int]] =
+  Future {
+    rateOf(code)
+  }</code></pre>
+      <p>
+        <code>rateOf</code> is still Day 11’s cake: a function of its argument.
+        <code>fetchRate</code> is the icing that says “run that lookup off this thread.”
+        <code>Future.successful(x)</code> is the other constructor: already completed, no pool.
+        This unit’s fetches should schedule with <code>Future { }</code>.
+      </p>
+      <p>
+        Constructing two futures starts both. Combining them afterwards is how overlapping work
+        happens. Creating the second only inside the first’s <code>map</code> would wait.
+        Stop there: you do not need <code>flatMap</code> or a <code>Promise</code> yet.
+      </p>
+
+      <h2 id="context">The ExecutionContext is the pool</h2>
+      <p>
+        An <code>ExecutionContext</code> runs the body — typically on a thread pool,
+        not necessarily on the thread that called <code>Future { }</code>.<a class="sidenote-ref" href="#sn-ec">3</a>
+        <code>map</code> needs one too: the function runs later, when the value arrives.
+      </p>
+      <aside class="sidenote" id="sn-ec">
+        <cite>Futures and Promises</cite>:
+        “you can think of execution contexts as thread pools.”
+        <code>ExecutionContext.global</code> is the built-in pool.
+        Skip custom executors, <code>blocking { }</code>, and “run on the current thread.”
+      </aside>
+      <p>
+        Day 08 already taught the wiring. Methods that need a pool take
+        <code>(using ExecutionContext)</code>.
+        Tests and <code>@main</code> import <code>ExecutionContext.Implicits.global</code>
+        at that edge. Do not hide <code>global</code> inside <code>fetchRate</code> —
+        the API’s advice is to choose the context in one place and pass it in.<a class="sidenote-ref" href="#sn-using">4</a>
+      </p>
+      <aside class="sidenote" id="sn-using">
+        Scala API, <cite>ExecutionContext</cite>:
+        prefer <code>(implicit ec: ExecutionContext)</code> on methods
+        (Scala 3: <code>using</code>) over hardcoding
+        <code>import ExecutionContext.Implicits.global</code> in library code.
+      </aside>
+
+      <h2 id="map">map the value; Await only at the edge</h2>
+      <p>
+        <code>map</code> on a future is the same idea as <code>map</code> on <code>Option</code>:
+        transform the successful value; if there is no value, there is nothing to transform.
+        If the original future failed, the mapped future fails with the same exception.<a class="sidenote-ref" href="#sn-map">5</a>
+      </p>
+      <aside class="sidenote" id="sn-map">
+        <cite>Futures and Promises</cite>, combinators:
+        “You can reason about mapping futures in the same way you reason about mapping
+        collections.” Skip <code>onComplete</code> as a skill —
+        it returns <code>Unit</code>, like <code>foreach</code>: side effects, not a value.
+      </aside>
+<pre><code>def fetchConverted(code: String, amount: Int)(using ExecutionContext): Future[Option[Int]] =
+  fetchRate(code).map(maybeRate => maybeRate.map(_ * amount))</code></pre>
+      <p>
+        The test still needs a <code>T</code>, not a <code>Future[T]</code>.
+        <code>Await.result(future, 1.second)</code> blocks the current thread until the value
+        arrives or the timeout fires. The API recommends avoiding that except where you must —
+        a test or a main is that place.<a class="sidenote-ref" href="#sn-await">6</a>
+        MUnit can also wait if the test body <em>returns</em> the <code>Future</code>.
+        Either way, do not Await inside <code>fetchConverted</code>.
+      </p>
+      <aside class="sidenote" id="sn-await">
+        Scala API, <cite>Await</cite>:
+        <code>result</code> “will block the calling thread’s execution until they return,
+        which will cause performance degradation, and possibly, deadlock issues.”
+        “While occasionally useful, e.g. for testing, it is recommended that you avoid Await
+        whenever possible — instead favoring combinators.”
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>def fetchRate(...) =
+  Await.result(
+    Future { rateOf(code) },
+    1.second
+  )</code>
+    <span>You paid for a pool, then blocked the caller until it finished.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>def fetchRate(...) =
+  Future { rateOf(code) }
+// Await only in the test</code>
+    <span>The function returns a Future. The test (or main) is allowed to wait.</span>
+  </div>
+  <figcaption>Combinators stay non-blocking. Blocking belongs at the edge.</figcaption>
+</figure>
+      <p>
+        This is still not an <code>IO</code> type. A <code>Future</code> is eager: constructing
+        it is doing the work, not describing it. Day 14 exists because that difference matters
+        for a backend. Do not import Cats Effect here.
+      </p>
+      <p>
+        Worked example:
+        <a href="../src/main/scala/day13/Day13.scala"><code>Day13.scala</code></a>
+        and
+        <a href="../src/test/scala/day13/Day13Suite.test.scala"><code>Day13Suite.test.scala</code></a>.
+        <code>rateOf</code> has no <code>using</code>. The suite imports
+        <code>Implicits.global</code> and calls <code>Await.result</code>.
+        Keep
+        <a href="../reference/futures.html">the Future cheat sheet</a>
+        open while you code.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read
+        <a href="https://docs.scala-lang.org/overviews/core/futures.html">Futures and Promises</a>
+        through the introduction, “The Global Execution Context” (enough to know it is a thread
+        pool), and the <code>Future.apply</code> example under “Futures.”
+        Skip the Callbacks section as a skill.
+        Read the <code>map</code> combinator (the <code>rateQuote.map</code> rewrite).
+        Stop before <code>flatMap</code> / for-comprehensions as a skill, Promises, Blocking,
+        and custom executors.
+        Confirm the verbs on
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/concurrent/Future$.html">Future.apply</a>
+        (“Starts”) and
+        <a href="https://www.scala-lang.org/api/3.3.8/scala/concurrent/Await$.html">Await.result</a>
+        (blocks; testing).
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Futures retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Future.apply starts the body:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">as soon as constructed</button>
+            <button type="button">after the first Await</button>
+            <button type="button">after the first map</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="The placeholder is returned immediately; the body is already scheduled. Await and map consume a Future that has already been started." data-bad="Await and map do not start Future.apply. Construction does."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Future.map needs, in scope:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">an ExecutionContext to schedule</button>
+            <button type="button">a println in core</button>
+            <button type="button">the Cats Effect IO</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="The mapped function runs later on the pool. Pass using ExecutionContext; import global only in the test or main." data-bad="println is shell I/O. IO is the next unit. map’s extra argument is the ExecutionContext."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Await.result belongs in:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">the tests and mains</button>
+            <button type="button">inside every map call</button>
+            <button type="button">inside the fetch function</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Blocking the caller is the edge. Combinators stay non-blocking. fetchRate should return Future[Option[Int]]." data-bad="Await inside map or fetchRate blocks the thread you just tried to free."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">The catalog lookup belongs in:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">a pure Option function</button>
+            <button type="button">the Future block only</button>
+            <button type="button">a blocking Await wrapper</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="rateOf / unitPrice are functions of values. Future { } only says where to run that function." data-bad="If the only copy of the rule lives inside Future { }, you cannot test the catalog without a pool and a timeout."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day13.Day13Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>unitPrice</code>, <code>fetchUnitPrice</code>, and
+        <code>fetchLineTotal</code> in
+        <a href="../src/main/scala/day13/ExercisesDay13.scala"><code>ExercisesDay13.scala</code></a>.
+        The spec is
+        <a href="../src/test/scala/day13/ExercisesDay13Suite.test.scala"><code>ExercisesDay13Suite</code></a>
+        — do not edit the tests to match a weaker function.
+        Keep <code>unitPrice</code> pure (no <code>using</code>, no <code>Future</code>).
+        <code>fetchUnitPrice</code> only wraps that lookup in <code>Future { }</code>.
+        <code>fetchLineTotal</code> uses <code>fetchUnitPrice</code> and <code>map</code>;
+        it does not Await.
+        Unknown sku is <code>None</code>. A <code>qty</code> below 1 is <code>None</code> even
+        when the sku is known.
+        Then run
+        <code>scala-cli test . --test-only 'day13.ExercisesDay13Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why does map need an ExecutionContext?”) over “explain Futures again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0008-modules-boundaries-and-dependency-direction.html">Modules, boundaries and dependency direction</a>
+          · cheat sheet:
+          <a href="../reference/futures.html">Futures and ExecutionContext</a>
+          · next unit is <code>scala-014</code> (<code>IO</code>), not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>
