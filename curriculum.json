@@ -393,11 +393,36 @@
           "id": "scala-012",
           "sequence": 12,
           "title": "Modules, boundaries and dependency direction",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
-          "githubIssue": null
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0008-modules-boundaries-and-dependency-direction.html"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day12/core/Day12.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day12/core/ExercisesDay12.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day12/core/ExercisesDay12Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day12/core/ExercisesDay12.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0008-import-is-the-dependency-arrow.md"
+            }
+          ],
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/14"
         }
       ]
     },

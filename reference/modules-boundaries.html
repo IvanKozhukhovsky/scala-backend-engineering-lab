@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Modules and dependency direction cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-012</p>
+      <h1>Modules and dependency direction</h1>
+      <p class="lede">A module is a package. The only import arrow is shell → core.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0008-modules-boundaries-and-dependency-direction.html">Modules, boundaries and dependency direction</a>.
+        Docs:
+        <a href="https://docs.scala-lang.org/scala3/book/packaging-imports.html">Scala 3 Book — Packaging and Imports</a>,
+        <a href="https://docs.scala-lang.org/tour/packages-and-imports.html">Tour — Packages and Imports</a>.
+      </p>
+
+      <h2>Package</h2>
+<pre><code>package day12.core
+
+case class Item(sku: String, priceCents: Int)
+
+def priceOf(items: List[Item], sku: String): Option[Int] =
+  items.find(_.sku == sku).map(_.priceCents)</code></pre>
+      <ul>
+        <li>A package is a namespace. Same-package names need no import.</li>
+        <li>Convention: folder matches package. Scala does not require it; this repo does.</li>
+        <li><code>day12.core</code> does not automatically see <code>day12.shell</code>.</li>
+      </ul>
+
+      <h2>Import</h2>
+<pre><code>package day12.shell
+
+import day12.core.{Item, priceOf}
+
+def printPrice(items: List[Item], sku: String): Unit =
+  priceOf(items, sku) match
+    case Some(cents) =&gt; println(s"$cents")
+    case None        =&gt; println("unknown")</code></pre>
+      <ul>
+        <li><code>import pkg.Name</code> — one member. <code>import pkg.{A, B}</code> — a few. <code>import pkg.*</code> — the rest, not givens.</li>
+        <li>An import is a dependency arrow: this file depends on that package.</li>
+      </ul>
+
+      <h2>Direction</h2>
+      <ul>
+        <li>Shell imports core. Core does not import shell.</li>
+        <li>Tests of the decision import only the core (or live in that package).</li>
+        <li>Need the time? Pass <code>now</code> as data. A later <code>trait</code> is declared in the core package, implemented in the shell.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Put <code>Either</code> / <code>Option</code> / <code>copy</code> decisions in <code>*.core</code>.</li>
+        <li>Keep <code>println</code> in <code>*.shell</code>.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Import the shell from the core — the compiler will allow it; review must not.</li>
+        <li>Treat this unit as an sbt/mill subproject split.</li>
+        <li>Introduce an <code>IO</code> type — that is a later curriculum phase.</li>
+        <li>Rename, hide, or <code>import given</code> here unless a later unit needs it.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Purity at function scale:
+          <a href="functional-core.html">Purity and functional core</a>.
+          This sheet is the package-scale boundary on top of that split.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

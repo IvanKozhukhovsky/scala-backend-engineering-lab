@@ -64,6 +64,10 @@
   Short framing only: expressions that return values rather than statements that change program state.
 - [Gary Bernhardt: Boundaries](https://www.destroyallsoftware.com/talks/boundaries)
   Public talk that names the functional-core / imperative-shell split. Optional; the Scala 3 Book is the assigned primary source. The DAS screencast of that name is paywalled — do not assign it.
+- [Scala 3 Book: Packaging and Imports](https://docs.scala-lang.org/scala3/book/packaging-imports.html)
+  Primary narrative for `package`, `import pkg.Name`, `import pkg.{A, B}`, and `import pkg.*`. Stop before renaming, hiding, default imports, `_root_`, and importing givens.
+- [Tour of Scala: Packages and Imports](https://docs.scala-lang.org/tour/packages-and-imports.html)
+  Directory convention (package name = folder) and that same-package members need no import. Skip nested curly-brace packages and `_root_` unless a later unit needs them.
 - [Cats Effect documentation](https://typelevel.org/cats-effect/)
   Reserved for the effects/concurrency phase; do not introduce it before the curriculum reaches that phase.
 - [http4s documentation](https://http4s.org/)

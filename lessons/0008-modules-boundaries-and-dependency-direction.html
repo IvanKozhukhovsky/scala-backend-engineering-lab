@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Modules, boundaries and dependency direction</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-012 · Phase 03 · Testing and functional design</p>
+      <h1>Modules, boundaries and dependency direction</h1>
+      <p class="lede">
+        You can put a pure decision in one package and <code>println</code> in another,
+        so every <code>import</code> points from the shell toward the core — never the reverse.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What one package cannot stop</a></li>
+          <li><a href="#package">A package is a namespace</a></li>
+          <li><a href="#import">An import is an arrow</a></li>
+          <li><a href="#direction">Shell depends on core</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 11’s <code>debit</code> and <code>printDebit</code> lived in <code>package day11</code>.
+        A comment said “do not call println inside debit”.
+        Before reading on: if someone ignores the comment and writes
+        <code>println</code> inside <code>debit</code>, does the compiler refuse?
+        What would make that mistake <em>harder</em> than a comment?
+      </section>
+
+      <h2 id="package">A package is a namespace</h2>
+      <p>
+        A package names a region of code so two <code>Stock</code> types in different
+        regions do not collide. You declare it at the top of the file.
+        Same-package members see each other without an import.<a class="sidenote-ref" href="#sn-pkg">1</a>
+      </p>
+      <aside class="sidenote" id="sn-pkg">
+        Scala 3 Book, <cite>Packaging and Imports</cite>:
+        packages create namespaces; “Import clauses are not required for accessing
+        members of the same package.”
+      </aside>
+<pre><code>package day12.core
+
+case class Item(sku: String, priceCents: Int)
+
+def priceOf(items: List[Item], sku: String): Option[Int] =
+  items.find(_.sku == sku).map(_.priceCents)</code></pre>
+      <p>
+        By convention the folder matches the package:
+        <code>src/main/scala/day12/core/…</code>.
+        Scala does not require that layout; this repo follows it so you can see
+        the boundary in the tree.<a class="sidenote-ref" href="#sn-tour">2</a>
+      </p>
+      <aside class="sidenote" id="sn-tour">
+        <a href="https://docs.scala-lang.org/tour/packages-and-imports.html">Tour of Scala: Packages and Imports</a>:
+        one convention is package name = directory; Scala itself is agnostic to file layout.
+      </aside>
+      <p>
+        <code>day12.core</code> and <code>day12.shell</code> are siblings.
+        Nested names do not grant a free view of the sibling.
+        Core does not magically see <code>printPrice</code>.
+      </p>
+
+      <h2 id="import">An import is an arrow</h2>
+      <p>
+        To use a name from another package you import it.
+        That line is a compile-time dependency: this file now depends on that package.<a class="sidenote-ref" href="#sn-imp">3</a>
+      </p>
+      <aside class="sidenote" id="sn-imp">
+        Scala 3 Book, <cite>Packaging and Imports</cite>:
+        <code>import pkg.Name</code> one member;
+        <code>import pkg.{A, B}</code> a few;
+        <code>import pkg.*</code> the rest (not givens).
+        Stop before renaming, hiding, and <code>import pkg.given</code> — Day 08 already covered givens.
+      </aside>
+<pre><code>package day12.shell
+
+import day12.core.{Item, priceOf}
+
+def printPrice(items: List[Item], sku: String): Unit =
+  priceOf(items, sku) match
+    case Some(cents) =&gt; println(s"$cents")
+    case None        =&gt; println("unknown")</code></pre>
+      <p>
+        The shell may import the core. That is the only arrow this unit allows.
+        If <code>priceOf</code> imported <code>printPrice</code>, the core would depend on I/O
+        and you could not test the catalog without bringing the shell along.
+      </p>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>package day12.core
+import day12.shell.printPrice</code>
+    <span>The cake depends on the icing. Tests of the core now drag in println.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>package day12.shell
+import day12.core.priceOf</code>
+    <span>The icing depends on the cake. Tests import only day12.core.</span>
+  </div>
+  <figcaption>Dependency direction is the direction of import.</figcaption>
+</figure>
+
+      <h2 id="direction">Shell depends on core</h2>
+      <p>
+        Day 11 already split <em>functions</em>: <code>debit</code> returns a value;
+        <code>printDebit</code> prints. Packages make that split visible in the import graph.
+        A comment can be ignored. An import the core is not allowed to write is a boundary
+        you can review — and the compiler will not resolve a name that was never imported.
+      </p>
+      <p>
+        Tests of the decision live with the core (same package, or they import only
+        <code>day12.core</code>). They do not import the shell. They do not capture stdout.
+      </p>
+      <p>
+        If a later function needs the time, keep passing <code>now</code> as data, as in Day 11.
+        If you later name a capability as a <code>trait</code>, declare that trait in the
+        <em>core</em> package and implement it in the shell — still no import the other way.
+        Do not introduce an <code>IO</code> type. Do not split an sbt/mill subproject yet:
+        here a “module” is a package with a one-way import arrow.
+      </p>
+      <p>
+        Worked example:
+        <a href="../src/main/scala/day12/core/Day12.scala"><code>day12.core</code></a>
+        and
+        <a href="../src/main/scala/day12/shell/Day12Shell.scala"><code>day12.shell</code></a>.
+        The suite
+        <a href="../src/test/scala/day12/core/Day12Suite.test.scala"><code>Day12Suite</code></a>
+        is in <code>package day12.core</code> — it never mentions the shell.
+        Keep
+        <a href="../reference/modules-boundaries.html">the modules cheat sheet</a>
+        open while you code.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read the Scala 3 Book
+        <a href="https://docs.scala-lang.org/scala3/book/packaging-imports.html">Packaging and Imports</a>
+        through “Importing one or more members” (the Scala 3 examples with <code>*</code> and <code>as</code>).
+        Stop before renaming, hiding, “use imports anywhere” as a skill, default imports, <code>_root_</code>,
+        and importing givens.
+        Skim the Tour
+        <a href="https://docs.scala-lang.org/tour/packages-and-imports.html">Packages and Imports</a>
+        for the directory convention and “import is not required in the same package.”
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Modules retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A Scala package creates a:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">named namespace of code</button>
+            <button type="button">hidden mutable global variable</button>
+            <button type="button">Cats Effect IO wrapper</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="A package is a namespace. It does not make code pure and it is not an IO type." data-bad="Packages do not hide vars or wrap effects. IO is a later phase."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">day12.core should import:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">nothing from the shell</button>
+            <button type="button">printPrice from the shell</button>
+            <button type="button">the live system clock</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="If core imports shell, tests of the catalog drag in println. Pass time as data instead." data-bad="printPrice and currentTimeMillis are shell I/O. Core stays a function of values."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Imports may point from:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">shell toward the core</button>
+            <button type="button">core toward the shell</button>
+            <button type="button">core toward the clock</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Shell → core is the allowed arrow. The compiler still accepts the reverse if you write it — review must not." data-bad="Core → shell compiles. It is a design fault, not a compiler error. The clock is data you pass in."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Tests of priceOf should import:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">only the core package</button>
+            <button type="button">only the shell package</button>
+            <button type="button">both packages always equally</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Day12Suite is package day12.core. It asserts on Option[Int], not on captured stdout." data-bad="Testing printPrice means capturing prints. Importing both treats icing as part of the spec."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day12.core.Day12Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>reserve</code> in
+        <a href="../src/main/scala/day12/core/ExercisesDay12.scala"><code>day12.core.ExercisesDay12</code></a>.
+        Leave
+        <a href="../src/main/scala/day12/shell/ExercisesDay12Shell.scala"><code>printReserve</code></a>
+        as the shell — do not move the decision there, and do not
+        <code>import day12.shell</code> from the core.
+        The spec is
+        <a href="../src/test/scala/day12/core/ExercisesDay12Suite.test.scala"><code>ExercisesDay12Suite</code></a>
+        (<code>package day12.core</code>) — do not edit the tests to match a weaker function.
+        Return a new <code>Stock</code>. Check the sku before the quantity.
+        Then run
+        <code>scala-cli test . --test-only 'day12.core.ExercisesDay12Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why is WrongSku checked before qty?”) over “explain packages again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0007-immutability-pure-functions-and-functional-core.html">Immutability, pure functions and functional core</a>
+          · cheat sheet:
+          <a href="../reference/modules-boundaries.html">Modules and dependency direction</a>
+          · next unit is <code>scala-013</code> (Futures), not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

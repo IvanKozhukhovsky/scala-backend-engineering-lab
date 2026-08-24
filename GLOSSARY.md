@@ -42,3 +42,7 @@ _Avoid_: magic strings for those alternatives
 **Exhaustive match**:
 A `match` that names every case of a sealed type such as an Enum.
 _Avoid_: `case _` on a domain Enum (it hides a new case)
+
+**Import**:
+A compile-time dependency: the file that writes `import` depends on the named package.
+_Avoid_: treating import direction as the direction values flow at runtime
