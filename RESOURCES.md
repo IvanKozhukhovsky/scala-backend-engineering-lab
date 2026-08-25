@@ -83,7 +83,13 @@
 - [MUnit: Declaring tests](https://scalameta.org/munit/docs/tests.html)
   A test body may return a `Future`; MUnit waits. This unit’s suites use `Await.result` so the blocking edge stays visible.
 - [Cats Effect documentation](https://typelevel.org/cats-effect/)
-  Reserved for `scala-014`; do not introduce `IO` in the Futures unit.
+  Entry point for the effects runtime used from `scala-014` onward.
+- [Cats Effect: Getting Started](https://typelevel.org/cats-effect/docs/getting-started)
+  Primary install pin (`cats-effect` `3.6.4` in this repo), `IOApp.Simple`, and the REPL `unsafeRunSync` note. Stop before the FizzBuzz fiber demo.
+- [Cats Effect: IO](https://typelevel.org/cats-effect/docs/datatypes/io)
+  Primary narrative: IO as a description, referential transparency vs `Future`, `IO.pure` vs `IO.apply`. Stop before async constructors, error handling as a skill, concurrency, and cancelation.
+- [Cats Effect 3 API: IO](https://typelevel.org/cats-effect/api/3.x/cats/effect/IO.html)
+  Authoritative wording: pure immutable description; not evaluated until unsafe run / end of the world; not memoized.
 - [http4s documentation](https://http4s.org/)
   Candidate primary source for the HTTP backend phase; the exact backend stack is chosen when that phase begins.
 

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IO and referential transparency cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-014</p>
+      <h1>IO and referential transparency</h1>
+      <p class="lede">An IO is a description of an effect. Constructing it does not run the body.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0010-cats-effect-io-and-referential-transparency.html">Cats Effect IO and referential transparency</a>.
+        Docs:
+        <a href="https://typelevel.org/cats-effect/docs/getting-started">Getting Started</a>,
+        <a href="https://typelevel.org/cats-effect/docs/datatypes/io">IO</a>,
+        <a href="https://typelevel.org/cats-effect/api/3.x/cats/effect/IO.html">IO API</a>.
+        This repo pins <code>cats-effect</code> <code>3.6.4</code>.
+      </p>
+
+      <h2>Description</h2>
+<pre><code>def lookupRate(code: String): IO[Option[Int]] =
+  IO(rateOf(code))</code></pre>
+      <ul>
+        <li>An <code>IO[A]</code> is a pure value that <em>describes</em> a computation producing <code>A</code>.</li>
+        <li><code>IO.apply</code> / <code>IO { }</code> suspends a by-name body. Construction does not execute it.</li>
+        <li><code>IO.pure(x)</code> lifts an already-known value (by value). Do not put side effects in <code>pure</code>.</li>
+      </ul>
+
+      <h2>Referential transparency</h2>
+<pre><code>val tick = IO.println("hey")
+for
+  _ &lt;- tick
+  _ &lt;- tick
+yield ()</code></pre>
+      <ul>
+        <li>Naming an <code>IO</code> and sequencing it twice runs the effect twice (not memoized).</li>
+        <li><code>Future</code> is eager and memoized: sharing one started future does not re-run the body.</li>
+        <li>Laziness is what makes that rewrite safe for effect descriptions.</li>
+      </ul>
+
+      <h2>map, then run at the edge</h2>
+<pre><code>lookupRate(code).map(maybe => maybe.map(_ * amount))
+
+object App extends IOApp.Simple:
+  val run = convert("EUR", 10).flatMap(IO.println)
+
+// tests / REPL only:
+import cats.effect.unsafe.implicits.global
+convert("EUR", 10).unsafeRunSync()</code></pre>
+      <ul>
+        <li><code>map</code> transforms the successful result inside the description.</li>
+        <li>Apps: <code>IOApp.Simple</code> and a <code>val run</code>.</li>
+        <li>Tests/REPL: <code>unsafeRunSync</code> with <code>unsafe.implicits.global</code>. Not inside library functions.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Keep the domain lookup as a pure <code>Option</code> / <code>Either</code> function. Wrap it in <code>IO(...)</code>.</li>
+        <li>Return <code>IO[...]</code> from library code; execute only at the rim.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Treat an <code>IO</code> like a <code>Future</code>: construction is not a start.</li>
+        <li>Call <code>unsafeRunSync</code> (or <code>Await</code>) inside <code>lookupRate</code> / <code>map</code>.</li>
+        <li>Put effects inside <code>IO.pure</code>.</li>
+        <li>Introduce fibers, <code>Resource</code>, cancelation, or FS2 — those are later units.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Eager predecessor:
+          <a href="futures.html">Futures and ExecutionContext</a>.
+          Purity at function scale:
+          <a href="functional-core.html">Purity and functional core</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

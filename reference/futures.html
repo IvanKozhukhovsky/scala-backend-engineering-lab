@@ -64,7 +64,7 @@ Await.result(fetchConverted("EUR", 10), 1.second)</code></pre>
       <ul>
         <li>Treat a <code>Future</code> as a lazy recipe. The body starts at construction.</li>
         <li>Call <code>Await</code> or <code>Thread.sleep</code> inside the fetch functions.</li>
-        <li>Introduce an <code>IO</code> type — that is <code>scala-014</code>.</li>
+        <li>Introduce an <code>IO</code> type — that is <code>scala-014</code> (<a href="io.html">cheat sheet</a>).</li>
         <li>Write a <code>Promise</code>, a custom pool, or <code>blocking { }</code> in this unit.</li>
       </ul>
 
@@ -74,6 +74,8 @@ Await.result(fetchConverted("EUR", 10), 1.second)</code></pre>
           <a href="functional-core.html">Purity and functional core</a>.
           Packages:
           <a href="modules-boundaries.html">Modules and dependency direction</a>.
+          Lazy successor:
+          <a href="io.html">IO and referential transparency</a>.
         </p>
       </footer>
     </div>

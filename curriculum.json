@@ -490,10 +490,43 @@
           "id": "scala-014",
           "sequence": 14,
           "title": "Cats Effect IO and referential transparency",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "test",
+              "path": "src/test/scala/day14/ExercisesDay14Suite.test.scala"
+            },
+            {
+              "type": "source",
+              "path": "lessons/0010-cats-effect-io-and-referential-transparency.html"
+            },
+            {
+              "type": "source",
+              "path": "reference/io.html"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day14/Day14.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day14/Day14Suite.test.scala"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day14/ExercisesDay14.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day14/ExercisesDay14.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0010-io-construction-does-not-run.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/16"
         },
         {

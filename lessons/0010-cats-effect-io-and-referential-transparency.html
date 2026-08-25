@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cats Effect IO and referential transparency</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-014 · Phase 04 · Concurrency and effects</p>
+      <h1>Cats Effect IO and referential transparency</h1>
+      <p class="lede">
+        You can describe an effect as an <code>IO</code> value, transform it with
+        <code>map</code>, and run it only at the edge — without the work starting at construction.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Future already spent</a></li>
+          <li><a href="#description">A description, not a start</a></li>
+          <li><a href="#rt">Referential transparency</a></li>
+          <li><a href="#edge">map the value; run only at the edge</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 13’s <code>Future { rateOf(code) }</code> starts the body as soon as you construct it.
+        Day 11’s <code>debit</code> returned a value with no pool and no clock.
+        Before reading on: if you write <code>val lookup = IO(rateOf("EUR"))</code> and never
+        call <code>unsafeRunSync</code> or an <code>IOApp</code>, has <code>rateOf</code> run yet?
+        If you give that same <code>lookup</code> name to two steps in a <code>for</code>, how many
+        times should the lookup run when you finally execute the program?
+      </section>
+
+      <h2 id="description">A description, not a start</h2>
+      <p>
+        An <code>IO[A]</code> is a computation which, when evaluated, can perform effects before
+        returning an <code>A</code>. Until then it is only a description: a pure, immutable
+        value.<a class="sidenote-ref" href="#sn-io">1</a>
+      </p>
+      <aside class="sidenote" id="sn-io">
+        Cats Effect, <cite>IO</cite>:
+        “An IO is a data structure that represents just a description of a side effectful
+        computation.” Effects “are not evaluated until the ‘end of the world’” — an unsafe run
+        method, or an <code>IOApp</code>.
+      </aside>
+      <p>
+        Day 13’s <code>Future.apply</code> <em>starts</em> work. <code>IO.apply</code> (written
+        <code>IO { ... }</code> or <code>IO(...)</code>) <em>suspends</em> a by-name body: building
+        the value does not run the body.<a class="sidenote-ref" href="#sn-lazy">2</a>
+        That is the table in the docs: asynchronous eager is <code>Future</code>; asynchronous
+        lazy is <code>IO</code>.
+      </p>
+      <aside class="sidenote" id="sn-lazy">
+        <cite>IO</cite>, “On Referential Transparency and Lazy Evaluation”:
+        <code>Future[A]</code> is eager; <code>IO[A]</code> is lazy.
+        “Laziness goes hand in hand with referential transparency.”
+      </aside>
+<pre><code>def lookupRate(code: String): IO[Option[Int]] =
+  IO(rateOf(code))</code></pre>
+      <p>
+        <code>rateOf</code> is still Day 11’s cake: a function of its argument.
+        <code>lookupRate</code> is a recipe that says “when run, call that function.”
+        No <code>ExecutionContext</code> parameter appears on these signatures — the runtime
+        behind <code>IOApp</code> / <code>unsafeRunSync</code> owns scheduling later.
+      </p>
+      <p>
+        <code>IO.pure(x)</code> lifts an already-known value. Its argument is evaluated
+        <em>now</em>, by value — so never put <code>println</code> inside
+        <code>IO.pure</code>. Suspension is <code>IO { ... }</code>, not
+        <code>pure</code>.<a class="sidenote-ref" href="#sn-pure">3</a>
+      </p>
+      <aside class="sidenote" id="sn-pure">
+        <cite>IO</cite>, “Pure Values”:
+        “IO.pure cannot suspend side effects, because IO.pure is eagerly evaluated…
+        so don’t do this: <code>IO.pure(println("THIS IS WRONG!"))</code>.”
+      </aside>
+
+      <h2 id="rt">Referential transparency</h2>
+      <p>
+        Referential transparency means you can replace an expression with a name bound to the
+        same value and the program still means the same thing. With <code>IO</code>, naming a
+        suspended effect and using that name twice still means “run this description twice.”
+        The docs’ gauge example is the test: factoring <code>addToGauge(32)</code> into a
+        <code>val</code> must not change how many times the gauge updates.<a class="sidenote-ref" href="#sn-rt">4</a>
+      </p>
+      <aside class="sidenote" id="sn-rt">
+        <cite>IO</cite>: naming the task and sequencing it twice “doesn’t work with Future, but
+        works with IO.” Effects are not memoized; a single description may be run multiple times.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>val started =
+  Future { add() }
+// using `started` twice
+// still one run (memoized)</code>
+    <span>Construction already started the work. Sharing the Future shares the result.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>val tick = IO { add() }
+for
+  _ &lt;- tick
+  _ &lt;- tick
+yield ()</code>
+    <span>One description, two runs when the program executes.</span>
+  </div>
+  <figcaption>Lazy + not memoized is what makes the rewrite safe.</figcaption>
+</figure>
+      <p>
+        That is why Day 11’s purity talk and Day 13’s eagerness collide: a backend wants to
+        <em>compose</em> effect descriptions the way it composes <code>Option</code> values,
+        then run once at the rim of the process.
+      </p>
+
+      <h2 id="edge">map the value; run only at the edge</h2>
+      <p>
+        <code>map</code> on an <code>IO</code> is the same idea as on <code>Option</code> or
+        <code>Future</code>: transform the successful result inside the description. Nothing
+        runs until the whole program is executed.
+      </p>
+<pre><code>def convert(code: String, amount: Int): IO[Option[Int]] =
+  lookupRate(code).map(maybeRate => maybeRate.map(_ * amount))</code></pre>
+      <p>
+        The application edge is <code>IOApp.Simple</code>: you provide a
+        <code>val run: IO[Unit]</code>, and Cats Effect runs it for you.<a class="sidenote-ref" href="#sn-app">5</a>
+        Tests and the REPL may call <code>unsafeRunSync()</code> after importing
+        <code>cats.effect.unsafe.implicits.global</code> — useful, named unsafe, not for library
+        cores.<a class="sidenote-ref" href="#sn-unsafe">6</a>
+      </p>
+      <aside class="sidenote" id="sn-app">
+        <cite>Getting Started</cite>:
+        <code>object HelloWorld extends IOApp.Simple { val run = IO.println("Hello, World!") }</code>
+      </aside>
+      <aside class="sidenote" id="sn-unsafe">
+        <cite>Getting Started</cite>, REPL:
+        <code>unsafeRunSync()</code> “is not meant to be used within a normal application…
+        very useful for REPL-based experimentation and sometimes useful for testing.”
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>def lookupRate(code: String) =
+  IO(rateOf(code)).unsafeRunSync()</code>
+    <span>You built a description, then forced it inside the library.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>def lookupRate(code: String) =
+  IO(rateOf(code))
+// run in IOApp or the test</code>
+    <span>The function returns IO. The edge is allowed to execute.</span>
+  </div>
+  <figcaption>Compose descriptions. Execute at the rim.</figcaption>
+</figure>
+      <p>
+        Stop here: no fibers, no <code>Resource</code>, no cancellation API, no FS2.
+        Those are later units. Do not reach for <code>Future</code> inside these functions.
+      </p>
+      <p>
+        Worked example:
+        <a href="../src/main/scala/day14/Day14.scala"><code>Day14.scala</code></a>
+        and
+        <a href="../src/test/scala/day14/Day14Suite.test.scala"><code>Day14Suite.test.scala</code></a>.
+        The suite proves construction does not run the body, and that sequencing the same
+        <code>IO</code> twice runs it twice. Keep
+        <a href="../reference/io.html">the IO cheat sheet</a>
+        open while you code.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read
+        <a href="https://typelevel.org/cats-effect/docs/getting-started">Getting Started</a>
+        through the <code>IOApp.Simple</code> hello world and the REPL
+        <code>unsafeRunSync</code> note (stop before FizzBuzz / fibers).
+        Then read
+        <a href="https://typelevel.org/cats-effect/docs/datatypes/io">IO</a>
+        through the introduction, “On Referential Transparency and Lazy Evaluation”
+        (including the Future comparison table and the gauge rewrite), and
+        “Pure Values — IO.pure &amp; IO.unit” plus “Synchronous Effects — IO.apply”.
+        Stop before async constructors, <code>IO.defer</code> depth, error handling as a skill,
+        concurrency, and cancelation.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="IO retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">IO &#123; body &#125; runs the body:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">only when you execute</button>
+            <button type="button">as soon as constructed</button>
+            <button type="button">after the first map</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Construction only builds a description. Execution is unsafeRunSync or IOApp." data-bad="Future.apply starts at construction. IO.apply suspends until you run the program."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Name one IO, sequence twice:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">the effect runs twice</button>
+            <button type="button">the effect runs once</button>
+            <button type="button">the Future memoizes it</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="IO is not memoized. Sharing the description still means two runs when sequenced twice." data-bad="That memoized-once behaviour is Future. IO re-runs the description each time it is sequenced."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">unsafeRunSync belongs in:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">the tests and REPL</button>
+            <button type="button">inside every map call</button>
+            <button type="button">inside the lookup core</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Getting Started reserves unsafe run for REPL and sometimes tests. Apps use IOApp." data-bad="Running inside map or lookupRate collapses the description back into an eager shell."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">The catalog lookup belongs in:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">a pure Option function</button>
+            <button type="button">only the IO.apply body</button>
+            <button type="button">a memoized Future wrapper</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="rateOf / unitPrice stay functions of values. IO { } only suspends when to run them." data-bad="If the only copy of the rule lives inside IO { }, you cannot test the catalog without executing effects."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day14.Day14Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>unitPrice</code>, <code>lookupUnitPrice</code>, and
+        <code>lineTotal</code> in
+        <a href="../src/main/scala/day14/ExercisesDay14.scala"><code>ExercisesDay14.scala</code></a>.
+        The spec is
+        <a href="../src/test/scala/day14/ExercisesDay14Suite.test.scala"><code>ExercisesDay14Suite</code></a>
+        — do not edit the tests to match a weaker function.
+        Keep <code>unitPrice</code> pure (no <code>IO</code>).
+        <code>lookupUnitPrice</code> only wraps that lookup in <code>IO(...)</code>.
+        <code>lineTotal</code> uses <code>lookupUnitPrice</code> and <code>map</code>;
+        it does not <code>unsafeRunSync</code>.
+        Unknown sku is <code>None</code>. A <code>qty</code> below 1 is <code>None</code> even
+        when the sku is known.
+        Then run
+        <code>scala-cli test . --test-only 'day14.ExercisesDay14Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why does naming an IO twice re-run?”) over “explain IO again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0009-futures-execution-contexts-and-concurrency.html">Futures, execution contexts and concurrency fundamentals</a>
+          · cheat sheet:
+          <a href="../reference/io.html">IO and referential transparency</a>
+          · next unit is <code>scala-015</code> (resources / fibers), not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>
