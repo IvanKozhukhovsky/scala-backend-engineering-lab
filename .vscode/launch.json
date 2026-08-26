@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "scala",
+      "request": "launch",
+      "name": "Day15",
+      "mainClass": "day15.Day15",
+      "buildTarget": "file:/home/ikozh/Documents/my_own_projects/scala_backend_engineering_lab/.scala-build/?id=scala_backend_engineering_lab_dda973b1f6",
+      "args": [],
+      "jvmOptions": [],
+      "env": {}
+    }
+  ]
+}

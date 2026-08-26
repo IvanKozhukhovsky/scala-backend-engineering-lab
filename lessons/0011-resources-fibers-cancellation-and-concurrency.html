@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resources, fibers, cancellation and concurrency primitives</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-015 · Phase 04 · Concurrency and effects</p>
+      <h1>Resources, fibers, cancellation and concurrency primitives</h1>
+      <p class="lede">
+        You can open a scarce handle with <code>Resource</code> so release always runs,
+        and start a background fiber so cancelation frees it when the scope ends —
+        without leaking work or sockets in a backend service.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 14 already bought</a></li>
+          <li><a href="#fibers">Fibers are lightweight concurrent work</a></li>
+          <li><a href="#cancel">Cancelation is a request, then finalizers</a></li>
+          <li><a href="#resource">Resource pairs acquire with release</a></li>
+          <li><a href="#background">Prefer background over bare start</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 14: <code>IO { open() }</code> only builds a description until
+        <code>unsafeRunSync</code> / <code>IOApp</code>. Naming that description and sequencing
+        it twice runs it twice.
+        Before reading on: if a fiber opens a DB connection, then gets canceled mid-request,
+        what must still happen to the connection? If you
+        <code>.start</code> a forever-loop and drop the <code>Fiber</code> handle, who cancels it?
+      </section>
+
+      <h2 id="fibers">Fibers are lightweight concurrent work</h2>
+      <p>
+        A fiber is a sequence of effects the runtime evaluates — a lightweight concurrent unit,
+        not an OS thread.<a class="sidenote-ref" href="#sn-fiber">1</a>
+        Your process has a main fiber (<code>IOApp</code>’s <code>run</code>). Other fibers are
+        started from it. Creating millions is cheap; creating millions of JVM threads is not.
+      </p>
+      <aside class="sidenote" id="sn-fiber">
+        Cats Effect, <cite>Concepts · Fibers</cite>:
+        fibers are “lightweight threads”; the <code>IO</code> runtime implements them in roughly
+        150 bytes each.
+      </aside>
+<pre><code>for
+  fiber &lt;- IO.println("child").start
+  _     &lt;- fiber.join
+yield ()</code></pre>
+      <p>
+        <code>start</code> returns a <code>FiberIO</code> handle. <code>join</code> waits for an
+        <code>Outcome</code>: succeeded, errored, or canceled.
+        Prefer higher-level helpers when you can; bare <code>start</code> is easy to leak.
+        <a class="sidenote-ref" href="#sn-start">2</a>
+      </p>
+      <aside class="sidenote" id="sn-start">
+        <cite>Concepts · Concurrency</cite>:
+        <code>start</code> / <code>join</code> are the primitives; prefer structured tools such as
+        <code>background</code> so fibers are not abandoned.
+      </aside>
+
+      <h2 id="cancel">Cancelation is a request, then finalizers</h2>
+      <p>
+        Cancelation is cooperative. Calling <code>fiber.cancel</code> asks the target to stop.
+        The canceler waits until the target runs its finalizers and terminates.
+        That is why cancelation can close files and sockets safely — if you registered
+        finalizers.<a class="sidenote-ref" href="#sn-cancel">3</a>
+      </p>
+      <aside class="sidenote" id="sn-cancel">
+        <cite>Concepts · Cancelation</cite>:
+        cancel is a request; once cancelation starts, the fiber “will run all of its finalizers
+        … before yielding control back to the canceler.”
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>Thread.interrupt()
+// returns now; cleanup
+// is easy to miss</code>
+    <span>Interruption does not wait for your finally blocks the way fiber cancel does.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>fiber.cancel
+// waits through
+// finalizers</code>
+    <span>The canceler observes that cleanup finished.</span>
+  </div>
+  <figcaption>Backend services need cancel + cleanup, not fire-and-forget interrupt.</figcaption>
+</figure>
+      <p>
+        Timeouts and racing work cancel the loser. Without finalizers, cancel still stops the
+        fiber — and can leave a connection open. That is the leak cancelation is meant to prevent.
+      </p>
+
+      <h2 id="resource">Resource pairs acquire with release</h2>
+      <p>
+        <code>Resource[IO, A]</code> packages “open <code>A</code>” with “always close
+        <code>A</code>.” Build it with <code>Resource.make</code>, consume it with
+        <code>use</code>.<a class="sidenote-ref" href="#sn-res">4</a>
+      </p>
+      <aside class="sidenote" id="sn-res">
+        Cats Effect, <cite>Resource</cite> (std):
+        <code>make(acquire)(release)</code> and <code>use</code>. Acquire and release are
+        non-interruptible; release runs when use succeeds, fails, or is canceled.
+      </aside>
+<pre><code>def connection(name: String): Resource[IO, Conn] =
+  Resource.make(open(name))(c =&gt; close(c))
+
+connection("orders").use { c =&gt;
+  query(c)
+}</code></pre>
+      <p>
+        Nested resources in a <code>for</code> release in reverse acquire order. Outer release
+        still runs if an inner step fails. Do not <code>use</code> and then keep using the handle
+        outside the block — it is already closed.<a class="sidenote-ref" href="#sn-order">5</a>
+      </p>
+      <aside class="sidenote" id="sn-order">
+        <cite>Resource</cite>: released in reverse order of acquire; “finalization happens as soon
+        as the <code>use</code> block finishes.”
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>open.use(IO.pure)
+  .flatMap(query)
+// handle already closed</code>
+    <span>use finishes → release runs → query sees a dead handle.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>open.use { c =&gt;
+  query(c)
+}</code>
+    <span>All use of the handle stays inside use.</span>
+  </div>
+  <figcaption>The boundary of use is the lifetime of the resource.</figcaption>
+</figure>
+
+      <h2 id="background">Prefer background over bare start</h2>
+      <p>
+        <code>io.background</code> is a <code>Resource</code> that starts a child fiber and
+        cancels it when the resource scope ends (or when the parent is canceled).
+        That is structured concurrency for background work.<a class="sidenote-ref" href="#sn-bg">6</a>
+      </p>
+      <aside class="sidenote" id="sn-bg">
+        <cite>GenSpawn#background</cite>:
+        “The child fiber is canceled in two cases: either the resource goes out of scope or the
+        parent fiber is canceled.” Prefer this over cancelation-unsafe bare <code>start</code>.
+      </aside>
+<pre><code>val ticker = IO.println("tick").foreverM
+ticker.background.use { _ =&gt;
+  IO.sleep(2.seconds) *&gt; IO.println("done")
+}</code></pre>
+      <p>
+        When <code>use</code> exits, the ticker is canceled. You do not manually
+        <code>join</code> / <code>cancel</code> unless you have a reason to manage the handle.
+        Higher-level <code>parMapN</code> / <code>both</code> also start fibers for you and cancel
+        siblings on failure — use those for “run these together,” use <code>background</code>
+        for “keep this running while I do something else.”
+      </p>
+      <p>
+        Stop here: no <code>Ref</code> / <code>Deferred</code> / <code>Semaphore</code> deep dive,
+        no <code>uncancelable</code> masking, no FS2 streams, no <code>munit-cats-effect</code>.
+        Those wait for later units or appear only as optional reading.
+      </p>
+      <p>
+        Worked example:
+        <a href="../src/main/scala/day15/Day15.scala"><code>Day15.scala</code></a>
+        and
+        <a href="../src/test/scala/day15/Day15Suite.test.scala"><code>Day15Suite.test.scala</code></a>.
+        Keep
+        <a href="../reference/resource-fiber.html">the Resource / fiber cheat sheet</a>
+        open while you code.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read
+        <a href="https://typelevel.org/cats-effect/docs/concepts">Concepts</a>
+        — sections <em>Fibers</em>, <em>Cancelation</em>, and the short
+        <em>Concurrency</em> note on <code>start</code> / <code>background</code>.
+        Then read
+        <a href="https://typelevel.org/cats-effect/docs/std/resource">Resource</a>
+        through <code>make</code> / <code>use</code>, reverse release order, and the
+        “already closed after use” warning.
+        Skim the tutorial’s
+        <a href="https://typelevel.org/cats-effect/docs/tutorial#acquiring-and-releasing-resources">Acquiring and releasing Resources</a>
+        and
+        <a href="https://typelevel.org/cats-effect/docs/tutorial#dealing-with-cancelation">Dealing with cancelation</a>
+        for the file-copy story (stop before the full producer–consumer / <code>Ref</code> build).
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Resource and fiber retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">fiber.cancel on a peer:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">requests stop then waits</button>
+            <button type="button">kills the OS thread</button>
+            <button type="button">returns before any cleanup</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Cancelation is cooperative: request, finalizers, then the canceler continues." data-bad="Unlike Thread.interrupt returning immediately, fiber.cancel awaits finalization."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Resource.use ends; the handle:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">is already released then</button>
+            <button type="button">stays open forever</button>
+            <button type="button">opens again on map</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Finalizers run when use finishes. Keep all work on the handle inside use." data-bad="Leaving use and then reading the handle is a use-after-close bug."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Cancel during Resource.use:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">still runs the release</button>
+            <button type="button">skips release entirely</button>
+            <button type="button">only runs on success</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="make registers a finalizer. Cancel, error, and success all trigger release." data-bad="The point of Resource is release on every outcome, including cancelation."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">background for a ticker:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">cancels when scope ends</button>
+            <button type="button">leaks after start drops</button>
+            <button type="button">joins only on success</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="background is a Resource: leaving use cancels the child fiber." data-bad="Bare start without a join/cancel path is how fiber leaks happen."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day15.Day15Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>lease</code>, <code>withLease</code>, and
+        <code>withHeartbeat</code> in
+        <a href="../src/main/scala/day15/ExercisesDay15.scala"><code>ExercisesDay15.scala</code></a>.
+        The spec is
+        <a href="../src/test/scala/day15/ExercisesDay15Suite.test.scala"><code>ExercisesDay15Suite</code></a>
+        — do not edit the tests to match a weaker function.
+        <code>lease</code> is a <code>Resource</code> that acquires and releases a
+        <code>Permit</code> via the provided open/close effects.
+        <code>withLease</code> runs an action inside that resource’s <code>use</code>.
+        <code>withHeartbeat</code> runs a heartbeat in <code>background</code> while the action
+        runs, then lets the resource scope cancel the heartbeat.
+        Do not call <code>unsafeRunSync</code> inside those three.
+        Then run
+        <code>scala-cli test . --test-only 'day15.ExercisesDay15Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why does cancel wait for release?”) over “explain fibers again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0010-cats-effect-io-and-referential-transparency.html">Cats Effect IO and referential transparency</a>
+          · cheat sheet:
+          <a href="../reference/resource-fiber.html">Resource, fibers, cancelation</a>
+          · next unit is <code>scala-016</code> (FS2), not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

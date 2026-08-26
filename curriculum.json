@@ -533,10 +533,39 @@
           "id": "scala-015",
           "sequence": 15,
           "title": "Resources, fibers, cancellation and concurrency primitives",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "test",
+              "path": "src/test/scala/day15/Day15Suite.test.scala"
+            },
+            {
+              "type": "source",
+              "path": "lessons/0011-resources-fibers-cancellation-and-concurrency.html"
+            },
+            {
+              "type": "source",
+              "path": "reference/resource-fiber.html"
+            },
+            {
+              "type": "source",
+              "path": "src/main/scala/day15/Day15.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day15/ExercisesDay15Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day15/ExercisesDay15.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0011-cancel-runs-resource-release.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/17"
         },
         {

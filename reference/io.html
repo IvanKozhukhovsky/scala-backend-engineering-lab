@@ -72,7 +72,7 @@ convert("EUR", 10).unsafeRunSync()</code></pre>
         <li>Treat an <code>IO</code> like a <code>Future</code>: construction is not a start.</li>
         <li>Call <code>unsafeRunSync</code> (or <code>Await</code>) inside <code>lookupRate</code> / <code>map</code>.</li>
         <li>Put effects inside <code>IO.pure</code>.</li>
-        <li>Introduce fibers, <code>Resource</code>, cancelation, or FS2 — those are later units.</li>
+        <li>Introduce fibers, <code>Resource</code>, cancelation, or FS2 before those units — see the next cheat sheet when you reach them.</li>
       </ul>
 
       <footer class="meta">
@@ -81,6 +81,8 @@ convert("EUR", 10).unsafeRunSync()</code></pre>
           <a href="futures.html">Futures and ExecutionContext</a>.
           Purity at function scale:
           <a href="functional-core.html">Purity and functional core</a>.
+          Next:
+          <a href="resource-fiber.html">Resource, fibers, cancelation</a>.
         </p>
       </footer>
     </div>

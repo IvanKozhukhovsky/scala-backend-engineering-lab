@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resource, fibers, cancelation cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-015</p>
+      <h1>Resource, fibers, cancelation</h1>
+      <p class="lede">Pair acquire with release. Cancel runs finalizers. Prefer background over bare start.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0011-resources-fibers-cancellation-and-concurrency.html">Resources, fibers, cancellation and concurrency primitives</a>.
+        Docs:
+        <a href="https://typelevel.org/cats-effect/docs/concepts">Concepts</a>,
+        <a href="https://typelevel.org/cats-effect/docs/std/resource">Resource</a>,
+        <a href="https://typelevel.org/cats-effect/docs/tutorial">Tutorial</a> (resource + cancelation sections),
+        <a href="https://typelevel.org/cats-effect/api/3.x/cats/effect/kernel/GenSpawn.html">GenSpawn</a>.
+        This repo pins <code>cats-effect</code> <code>3.6.4</code>.
+      </p>
+
+      <h2>Fiber</h2>
+<pre><code>for
+  fiber &lt;- work.start
+  out   &lt;- fiber.join   // Outcome: Succeeded | Errored | Canceled
+yield out
+
+fiber.cancel  // request stop; await finalizers</code></pre>
+      <ul>
+        <li>A fiber is a lightweight concurrent sequence of effects, not an OS thread.</li>
+        <li><code>start</code> returns a handle; dropping it without cancel/join can leak work.</li>
+        <li>Cancelation is cooperative: request, then finalizers, then the canceler continues.</li>
+      </ul>
+
+      <h2>Resource</h2>
+<pre><code>def conn(name: String): Resource[IO, Conn] =
+  Resource.make(open(name))(c =&gt; close(c))
+
+conn("orders").use(c =&gt; query(c))</code></pre>
+      <ul>
+        <li><code>make(acquire)(release)</code>; consume with <code>use</code>.</li>
+        <li>Release runs on success, error, and cancelation of the <code>use</code> body.</li>
+        <li>Nested resources release in reverse acquire order.</li>
+        <li>Do not use the handle after <code>use</code> returns — it is already released.</li>
+      </ul>
+
+      <h2>background</h2>
+<pre><code>ticker.background.use { _ =&gt;
+  IO.sleep(2.seconds) *&gt; work
+}</code></pre>
+      <ul>
+        <li><code>background</code> is a <code>Resource</code> around a started fiber.</li>
+        <li>Leaving the scope (or parent cancel) cancels the child.</li>
+        <li>Prefer this over bare <code>start</code> for “run while I do X.”</li>
+        <li>For “run these together,” prefer <code>both</code> / <code>parMapN</code> over manual join/cancel.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Put every use of a scarce handle inside <code>Resource.use</code>.</li>
+        <li>Rely on cancelation + finalizers for timeouts and Ctrl-C via <code>IOApp</code>.</li>
+        <li>Keep domain rules as pure functions; wrap lifecycle in <code>Resource</code> / <code>IO</code>.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li><code>.start</code> and forget the fiber handle.</li>
+        <li>Treat cancel like “thread is dead instantly with no cleanup.”</li>
+        <li>Reach for <code>Ref</code> / <code>Deferred</code> / FS2 before the next unit needs them.</li>
+        <li>Call <code>unsafeRunSync</code> inside acquire/release/use helpers in library code.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Predecessor:
+          <a href="io.html">IO and referential transparency</a>.
+          Eager predecessor:
+          <a href="futures.html">Futures and ExecutionContext</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

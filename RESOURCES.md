@@ -90,6 +90,16 @@
   Primary narrative: IO as a description, referential transparency vs `Future`, `IO.pure` vs `IO.apply`. Stop before async constructors, error handling as a skill, concurrency, and cancelation.
 - [Cats Effect 3 API: IO](https://typelevel.org/cats-effect/api/3.x/cats/effect/IO.html)
   Authoritative wording: pure immutable description; not evaluated until unsafe run / end of the world; not memoized.
+- [Cats Effect: Concepts](https://typelevel.org/cats-effect/docs/concepts)
+  Primary narrative for fibers, cooperative cancelation, and why `background` is preferred over bare `start`. Stop before tracing / scheduler deep dives.
+- [Cats Effect: Resource](https://typelevel.org/cats-effect/docs/std/resource)
+  Primary narrative for `Resource.make` / `use`, reverse release order, and finalization when `use` ends. Stop before `Semaphore` / `Ref` cross-links as skills.
+- [Cats Effect: Tutorial](https://typelevel.org/cats-effect/docs/tutorial)
+  File-copy walkthrough for Resource + cancelation. Stop before the full producer–consumer / `Ref` build (`scala-015` does not require that section).
+- [Cats Effect 3 API: GenSpawn](https://typelevel.org/cats-effect/api/3.x/cats/effect/kernel/GenSpawn.html)
+  Authoritative contracts for `start`, `join`, `cancel`, and `background`.
+- [Cats Effect 3 API: Resource](https://typelevel.org/cats-effect/api/3.x/cats/effect/kernel/Resource.html)
+  Authoritative wording: release on success, failure, and interrupt of `use`.
 - [http4s documentation](https://http4s.org/)
   Candidate primary source for the HTTP backend phase; the exact backend stack is chosen when that phase begins.
 
