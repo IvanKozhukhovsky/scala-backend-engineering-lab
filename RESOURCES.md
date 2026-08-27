@@ -106,8 +106,20 @@
   Primary narrative for this unit: constructing streams, `map` / `filter`, `evalMap`, and `compile`. Stop before concurrency and I/O chapters.
 - [FS2 API: Stream](https://typelevel.org/fs2/api/fs2/Stream.html)
   Authoritative contracts for `emit`, `emits`, `evalMap`, `evalTap`, and `compile`.
-- [http4s documentation](https://http4s.org/)
-  Candidate primary source for the HTTP backend phase; the exact backend stack is chosen when that phase begins.
+- [http4s documentation](https://http4s.org/v0.23/)
+  Entry point for the HTTP library used from `scala-017` onward (0.23.x Cats Effect 3 line).
+- [http4s Quick Start](https://http4s.org/v0.23/docs/quickstart.html)
+  Install pin (`http4s-dsl` `0.23.36` in this repo) and Scala 3.3+ support. Ember client/server modules wait until a later unit needs a bound port.
+- [http4s: Service](https://http4s.org/v0.23/docs/service.html)
+  `HttpRoutes[F]` as `Request => F[Response]`. Stop before EmberServerBuilder / `Router` as skills — this unit runs requests in-process.
+- [http4s: The DSL](https://http4s.org/v0.23/docs/dsl.html)
+  Primary narrative for this unit: `HttpRoutes.of`, `GET -> Root / …`, `Ok` / `NotFound` / `MethodNotAllowed`, testing with a constructed `Request` and `.orNotFound`. Stop before cookies, `Future` bodies, and streaming drip examples.
+- [RFC 9110: HTTP Semantics — Methods](https://www.rfc-editor.org/rfc/rfc9110.html#name-methods)
+  Authoritative wording: safe methods (GET/HEAD/OPTIONS/TRACE), idempotent methods (safe + PUT + DELETE), POST is neither; 405 must include `Allow`.
+- [MDN: HTTP request methods](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods)
+  Gentler table of safe / idempotent / cacheable methods. Optional; RFC 9110 is the assigned spec.
+- [MDN: HTTP response status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status)
+  Status classes and the 200 / 404 / 405 wording used in this unit. Optional companion to the RFC.
 
 ## Wisdom
 

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTTP and REST cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-017</p>
+      <h1>HTTP and REST</h1>
+      <p class="lede">URI names the resource. Method is the operation. Status is the outcome.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0013-http-and-rest-contracts.html">HTTP and REST contracts</a>.
+        Docs:
+        <a href="https://http4s.org/v0.23/docs/dsl.html">http4s DSL</a>,
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#name-methods">RFC 9110 §9</a>.
+        This repo pins <code>http4s-dsl</code> <code>0.23.36</code>.
+      </p>
+
+      <h2>Contract</h2>
+      <ul>
+        <li><code>GET</code> — safe (read-only) and idempotent.</li>
+        <li><code>PUT</code> / <code>DELETE</code> — not safe; idempotent.</li>
+        <li><code>POST</code> — not safe; not idempotent.</li>
+        <li><code>200</code> found · <code>204</code> success, no body · <code>404</code> no resource · <code>405</code> wrong method (send <code>Allow</code>).</li>
+      </ul>
+
+      <h2>Routes</h2>
+<pre><code>import org.http4s.dsl.io.*
+import org.http4s.headers.Allow
+import org.http4s.implicits.*
+
+HttpRoutes.of[IO] {
+  case GET -&gt; Root / "rates" / code =&gt;
+    rateOf(code) match
+      case Some(n) =&gt; Ok(n.toString)
+      case None    =&gt; NotFound()
+  case _ -&gt; Root / "rates" / _ =&gt;
+    MethodNotAllowed(Allow(GET))
+}.orNotFound</code></pre>
+      <ul>
+        <li>First matching case wins.</li>
+        <li>Building routes does not bind a port or run <code>Ok</code>.</li>
+        <li><code>orNotFound</code> turns no match into HTTP 404.</li>
+      </ul>
+
+      <h2>Run (edge)</h2>
+<pre><code>val req = Request[IO](Method.GET, uri"/rates/EUR")
+val res = rateApp.run(req).unsafeRunSync()
+res.status
+res.as[String].unsafeRunSync()</code></pre>
+      <ul>
+        <li>Tests and <code>IOApp</code> run the <code>IO[Response[IO]]</code>.</li>
+        <li>Keep <code>rateOf</code> pure; HTTP only chooses the status.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Return 405 (with <code>Allow</code>) when the URI exists but the method does not.</li>
+        <li>Return 404 when the item is missing or the path is unknown.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Treat every unmatched method as 404.</li>
+        <li>Put catalog rules only inside <code>Ok { }</code>.</li>
+        <li>Introduce Ember, JSON codecs, or integration-test servers in this unit.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="io.html">IO</a>,
+          <a href="fs2-stream.html">FS2 streams</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

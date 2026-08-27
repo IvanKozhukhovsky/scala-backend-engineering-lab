@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTTP and REST contracts</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-017 · Phase 05 · Backend Engineering</p>
+      <h1>HTTP and REST contracts</h1>
+      <p class="lede">
+        You can name a resource with a URI, choose an HTTP method as the operation,
+        and return a status as the outcome — then encode that contract as
+        <code>HttpRoutes[IO]</code> and run a <code>Request</code> through it without binding a port.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 16 already bought</a></li>
+          <li><a href="#http">Method, URI, status</a></li>
+          <li><a href="#rest">The resource contract</a></li>
+          <li><a href="#routes">HttpRoutes is a function</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 14: <code>IO { rateOf(code) }</code> is a description until
+        <code>unsafeRunSync</code> / <code>IOApp</code>.
+        Day 16: <code>evalMap</code> stays lazy until <code>compile</code>.
+        Before reading on: if a client sends <code>GET /rates/EUR</code>, should
+        <code>rates</code> change? If they send <code>POST /rates/EUR</code> and you
+        never defined POST, is that a missing resource (404) or a forbidden method (405)?
+      </section>
+
+      <h2 id="http">Method, URI, status</h2>
+      <p>
+        An HTTP request names <em>what</em> (the target URI) and <em>what to do</em>
+        (the method). The response’s status is how that intention turned out.<a class="sidenote-ref" href="#sn-rfc">1</a>
+      </p>
+      <aside class="sidenote" id="sn-rfc">
+        RFC 9110: methods carry request semantics; a resource must not treat a request
+        in a way that contradicts the method. GET/HEAD/OPTIONS/TRACE are
+        <em>safe</em> (read-only). PUT, DELETE, and the safe methods are
+        <em>idempotent</em> (repeat has the same intended effect). POST is neither.
+      </aside>
+      <ul>
+        <li><code>GET</code> — transfer a representation. Must not request a state change.</li>
+        <li><code>PUT</code> — replace the resource; repeating it should land in the same state.</li>
+        <li><code>POST</code> — process the body according to the resource; not safe, not idempotent.</li>
+        <li><code>DELETE</code> — remove the resource; idempotent.</li>
+      </ul>
+      <p>
+        Status classes: <code>2xx</code> success, <code>4xx</code> the client’s request is the problem,
+        <code>5xx</code> the server failed. For this unit keep four codes in muscle memory:
+        <code>200</code> OK (GET found it), <code>404</code> Not Found (no such resource),
+        <code>405</code> Method Not Allowed (resource exists, that method does not),
+        <code>204</code> No Content (success with an empty body — http4s will not let you put a body on it).
+      </p>
+
+      <h2 id="rest">The resource contract</h2>
+      <p>
+        “REST” here means a uniform contract, not “JSON over HTTP.” A URI identifies a
+        resource. The method is the operation. The status is the result. Clients should
+        be able to retry a safe or idempotent call after a network blip without inventing
+        extra protocol.<a class="sidenote-ref" href="#sn-rest">2</a>
+      </p>
+      <aside class="sidenote" id="sn-rest">
+        A common bug: every unmatched method becomes 404 because the router never
+        considered the URI. RFC 9110: if the method is known but not allowed
+        <em>for that resource</em>, respond 405 and include an <code>Allow</code> header
+        listing the methods that work.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>POST /rates/EUR
+→ 404 Not Found
+// “no case matched”</code>
+    <span>The URI is a known item. The method is the problem.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>POST /rates/EUR
+→ 405 Method Not Allowed
+Allow: GET</code>
+    <span>GET /rates/JPY can still be 404 — that item does not exist.</span>
+  </div>
+  <figcaption>404 = wrong resource. 405 = wrong operation on this resource.</figcaption>
+</figure>
+      <p>
+        Keep <code>rateOf</code> a pure <code>Option</code> function, same as Days 14–16.
+        HTTP is the shell: it chooses a status from that value. Do not hide the catalog
+        inside <code>Ok { … }</code>.
+      </p>
+
+      <h2 id="routes">HttpRoutes is a function</h2>
+      <p>
+        http4s models a service as <code>Request[F] => F[Response[F]]</code>.
+        <code>HttpRoutes[IO]</code> is that function, with “no match” as an option so you
+        can compose routes. The DSL pattern-matches method and path; the first matching
+        case wins.<a class="sidenote-ref" href="#sn-dsl">3</a>
+      </p>
+      <aside class="sidenote" id="sn-dsl">
+        http4s Service and DSL docs: you do not need a server to test a route. Construct a
+        <code>Request</code>, run it, inspect <code>status</code> and body.
+        <code>.orNotFound</code> turns “no case matched” into HTTP 404.
+      </aside>
+<pre><code>import org.http4s.dsl.io.*
+import org.http4s.implicits.*
+
+val routes = HttpRoutes.of[IO] {
+  case GET -&gt; Root / "rates" / code =&gt;
+    rateOf(code) match
+      case Some(n) =&gt; Ok(n.toString)
+      case None    =&gt; NotFound()
+  case _ -&gt; Root / "rates" / _ =&gt;
+    MethodNotAllowed(Allow(GET))
+}
+
+val app = routes.orNotFound
+val req = Request[IO](GET, uri"/rates/EUR")
+app.run(req)   // IO[Response[IO]] — still a description</code></pre>
+      <p>
+        <code>Ok("108")</code> needs an entity encoder; strings are already in scope and
+        come back as <code>text/plain</code>. JSON codecs are the next unit — do not add
+        circe here. Ember (binding <code>:8080</code>) waits until integration testing:
+        this unit’s edge is <code>runRequest</code> / tests / <code>IOApp</code> printing
+        status lines, same rim rule as <code>compile</code> and <code>unsafeRunSync</code>.
+      </p>
+      <p>
+        This repo pins <code>http4s-dsl</code> <code>0.23.36</code> (Cats Effect 3 line,
+        Scala 3.3+).
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read the http4s
+        <a href="https://http4s.org/v0.23/docs/dsl.html">DSL</a>
+        — <em>The Simplest Service</em>, <em>Testing the Service</em>,
+        <em>Status codes</em>, and <em>Matching and Extracting Requests</em>
+        (stop before cookies, <code>Future</code> bodies, and streaming drip examples).
+        Skim RFC 9110
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#name-methods">§9 Methods</a>
+        for safe vs idempotent, and
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.405">§15.5.6</a>
+        for 405 + <code>Allow</code>.
+        MDN’s
+        <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods">request methods</a>
+        table is the gentler cheat sheet.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="HTTP and REST retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">GET on /rates/EUR:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">must not change state</button>
+            <button type="button">always creates a row</button>
+            <button type="button">retries as POST first</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="RFC 9110: GET is safe — the client did not ask to mutate the catalog." data-bad="PUT/POST change state. GET only transfers a representation."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Building HttpRoutes.of:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">does not bind ports</button>
+            <button type="button">starts Ember right now</button>
+            <button type="button">executes every Ok now</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Same laziness as IO: the route is a function. A Request must be run to get a Response." data-bad="Ember binds a port. Ok() still returns IO[Response] until the app is run."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">orNotFound on no match:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">returns HTTP status 404</button>
+            <button type="button">throws MatchError at run</button>
+            <button type="button">retries as GET instead</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="No case matched means no resource at that URI — 404, not an exception." data-bad="orNotFound is the HTTP translation of None, not a MatchError."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">POST when only GET exists:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">returns 405 not 404</button>
+            <button type="button">returns 200 empty body</button>
+            <button type="button">returns 500 then retries</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="The item URI exists; the method does not. Include Allow: GET." data-bad="404 would claim the resource is missing. 405 names a method problem."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day17.Day17Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>quoteRoutes</code> in
+        <a href="../src/main/scala/day17/ExercisesDay17.scala"><code>ExercisesDay17.scala</code></a>
+        (<code>quoteApp</code> is already <code>orNotFound</code>).
+        The spec is
+        <a href="../src/test/scala/day17/ExercisesDay17Suite.test.scala"><code>ExercisesDay17Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        <code>GET /quotes/:code</code> is 200 with the cents as text, or 404 if
+        <code>rateOf</code> is empty.
+        <code>GET /quotes</code> is 200 with known codes sorted and joined by commas.
+        Other methods on those URIs are 405.
+        Unknown paths stay 404.
+        Then run
+        <code>scala-cli test . --test-only 'day17.ExercisesDay17Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why 405 not 404 for POST?”) over “explain HTTP again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0012-streaming-fundamentals-with-fs2.html">Streaming fundamentals with FS2</a>
+          · Cheat sheet:
+          <a href="../reference/http-rest.html">HTTP and REST</a>
+          · JSON codecs are the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

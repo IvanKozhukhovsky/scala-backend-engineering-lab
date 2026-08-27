@@ -602,11 +602,28 @@
           "id": "scala-017",
           "sequence": 17,
           "title": "HTTP and REST contracts",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
-          "githubIssue": null
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "test",
+              "path": "src/test/scala/day17/Day17Suite.test.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day17/ExercisesDay17Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day17/ExercisesDay17.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0013-405-is-the-uri-template.md"
+            }
+          ],
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/19"
         },
         {
           "id": "scala-018",
@@ -616,7 +633,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/20"
         },
         {
           "id": "scala-019",
@@ -626,7 +643,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/21"
         },
         {
           "id": "scala-020",
@@ -636,7 +653,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/22"
         }
       ]
     },
