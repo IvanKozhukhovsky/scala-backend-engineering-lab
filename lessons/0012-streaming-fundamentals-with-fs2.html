@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Streaming fundamentals with FS2</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-016 · Phase 04 · Concurrency and effects</p>
+      <h1>Streaming fundamentals with FS2</h1>
+      <p class="lede">
+        You can describe many values as an FS2 <code>Stream</code>, transform them with
+        <code>map</code> and <code>evalMap</code>, and run the pipeline only at the edge with
+        <code>compile</code> — the same lazy story as <code>IO</code>, but one element at a time.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 15 already bought</a></li>
+          <li><a href="#stream">A stream is a lazy description</a></li>
+          <li><a href="#pure-io">Pure steps vs effectful steps</a></li>
+          <li><a href="#compile">compile runs at the edge</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 14: <code>IO { rateOf(code) }</code> is a description until
+        <code>unsafeRunSync</code> / <code>IOApp</code>.
+        Day 15: <code>Resource.use</code> runs acquire/release when the scope ends.
+        Before reading on: if you write
+        <code>Stream.emits(List("EUR", "GBP")).evalMap(c =&gt; IO(rateOf(c)))</code> and never call
+        <code>compile</code>, has <code>rateOf</code> run yet?
+        If you need rates for ten codes, why might a stream beat a single
+        <code>IO[List[Option[Int]]]</code> when responses arrive over time?
+      </section>
+
+      <h2 id="stream">A stream is a lazy description</h2>
+      <p>
+        <code>Stream[F, A]</code> is a sequence of <code>A</code> values produced by an effect
+        <code>F</code> — often <code>Pure</code> for pure steps or <code>IO</code> for
+        Cats Effect.<a class="sidenote-ref" href="#sn-stream">1</a>
+        Like <code>IO</code>, constructing a stream does not run it. You build a pipeline; something
+        at the rim must <em>compile</em> it to pull elements through.
+      </p>
+      <aside class="sidenote" id="sn-stream">
+        FS2 guide (see primary source): streams are “pull-based” — consumers request the next
+        chunk; producers do not dump an entire collection up front.
+      </aside>
+<pre><code>import fs2.Stream
+
+Stream.emit(1)              // one element
+Stream(1, 2, 3)             // finite literals
+Stream.emits(List("a", "b")) // from a collection</code></pre>
+      <p>
+        Pure transforms — <code>map</code>, <code>filter</code>, <code>take</code> — stay inside
+        the description. They fuse into the pipeline without running effects.
+        Concatenate with <code>++</code> when you need “this stream, then that stream.”
+      </p>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>val all = List(1,2,3)
+all.map(_ + 1)
+// whole list in memory</code>
+    <span>Eager materialization: every element exists before you transform.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>Stream(1,2,3)
+  .map(_ + 1)
+  .take(2)
+  .compile.toList</code>
+    <span>Pull-based: work happens as the consumer requests output.</span>
+  </div>
+  <figcaption>Backend services stream rows, bytes, or messages — not always one giant list.</figcaption>
+</figure>
+
+      <h2 id="pure-io">Pure steps vs effectful steps</h2>
+      <p>
+        When a step needs an effect — DB lookup, HTTP call, logging — use
+        <code>evalMap</code> (transform each element) or <code>evalTap</code> (run an effect, keep
+        the element). Each callback returns an <code>IO[...]</code>; FS2 sequences those effects as
+        the stream runs.<a class="sidenote-ref" href="#sn-eval">2</a>
+      </p>
+      <aside class="sidenote" id="sn-eval">
+        FS2 API: <code>evalMap</code> is the stream analogue of <code>flatMap</code> on
+        <code>IO</code> — one effect per element, in order unless you opt into parallelism later.
+      </aside>
+<pre><code>def rateStream(codes: Stream[Pure, String]): Stream[IO, Option[Int]] =
+  codes.evalMap(code =&gt; IO(rateOf(code)))</code></pre>
+      <p>
+        Keep domain lookups pure (<code>rateOf</code> returns <code>Option</code>). Suspend them
+        inside <code>IO(...)</code> in <code>evalMap</code>, the same way Day 14 wrapped
+        <code>lookupRate</code>. Do not call <code>unsafeRunSync</code> inside
+        <code>evalMap</code>.
+      </p>
+      <p>
+        Drop unwanted elements with <code>filter</code> / <code>collect</code>, or stop early with
+        <code>take</code>. That is how you “skip unknown currency codes” without building an
+        intermediate list first.
+      </p>
+
+      <h2 id="compile">compile runs at the edge</h2>
+      <p>
+        <code>compile</code> turns the description into something executable in
+        <code>F</code>.<a class="sidenote-ref" href="#sn-compile">3</a>
+        Common terminators:
+      </p>
+      <aside class="sidenote" id="sn-compile">
+        FS2 guide: <code>compile.toList</code> collects, <code>compile.drain</code> runs for effects
+        only, <code>compile.fold</code> aggregates — all return an <code>IO</code> when
+        <code>F = IO</code>.
+      </aside>
+      <ul>
+        <li><code>.compile.toList</code> — materialize every element (fine for tests and small data).</li>
+        <li><code>.compile.drain</code> — run effects, discard output (logging pipelines).</li>
+        <li><code>.compile.fold(0)(_ + _)</code> — aggregate without storing the whole stream.</li>
+      </ul>
+<pre><code>rateStream(codesFrom(List("EUR", "GBP", "JPY")))
+  .evalTap(m =&gt; IO.println(s"rate=$m"))
+  .compile
+  .drain</code></pre>
+      <p>
+        Apps: keep <code>compile.*</code> in <code>IOApp</code> or tests — same edge rule as
+        Day 14. This unit stays on in-memory streams; file I/O, sockets, and
+        <code>through</code> pipes come later.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read the FS2
+        <a href="https://github.com/typelevel/fs2/blob/main/docs/guide.md">Guide</a>
+        — sections <em>Stream</em>, <em>Basic Operations</em>, and <em>Running Streams</em>
+        (stop before <em>Concurrency</em> and I/O chapters).
+        Skim the
+        <a href="https://typelevel.org/fs2/api/fs2/Stream.html">Stream API</a>
+        for <code>emit</code>, <code>emits</code>, <code>evalMap</code>, and <code>compile</code>.
+        This repo pins <code>fs2-core</code> <code>3.12.2</code> with <code>cats-effect</code>
+        <code>3.6.4</code>.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="FS2 stream retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Building a Stream value:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">does not run effects</button>
+            <button type="button">starts every evalMap now</button>
+            <button type="button">memoizes like Future does</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Construction is lazy; compile at the edge runs the pipeline." data-bad="Same mistake as eager Future: construction is not execution."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">evalMap on Stream[IO, A]:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">runs IO per element</button>
+            <button type="button">requires unsafeRunSync inside</button>
+            <button type="button">only works on Pure streams</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Each element gets its own suspended IO; FS2 sequences them when compiled." data-bad="Keep unsafe runs at the rim, not inside evalMap."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">compile.drain on IO stream:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">runs effects discards output</button>
+            <button type="button">returns List of elements</button>
+            <button type="button">blocks the OS thread</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Use drain when you only care that effects ran — logging, publishing." data-bad="toList collects; drain executes without retaining values."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Stream.emits from List:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">still lazy until compile</button>
+            <button type="button">copies list to Vector</button>
+            <button type="button">requires Async constraint</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="emits describes elements; compile pulls them through the pipeline." data-bad="The source collection is finite, but execution is still pull-based."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day16.Day16Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>lines</code>, <code>knownRates</code>, and
+        <code>totalConverted</code> in
+        <a href="../src/main/scala/day16/ExercisesDay16.scala"><code>ExercisesDay16.scala</code></a>.
+        The spec is
+        <a href="../src/test/scala/day16/ExercisesDay16Suite.test.scala"><code>ExercisesDay16Suite</code></a>
+        — do not edit the tests to match a weaker function.
+        <code>lines</code> is a pure stream of non-empty trimmed lines from a string.
+        <code>knownRates</code> emits only rates that exist in <code>rates</code> (see
+        <code>Day16.scala</code>).
+        <code>totalConverted</code> sums <code>amount * rate</code> for known codes using
+        <code>compile.fold</code> or equivalent — do not call <code>compile</code> inside the
+        other two functions.
+        Then run
+        <code>scala-cli test . --test-only 'day16.ExercisesDay16Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why evalMap not map for IO?”) over “explain streams again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0011-resources-fibers-cancellation-and-concurrency.html">Resources, fibers, cancellation and concurrency primitives</a>
+          · Cheat sheet:
+          <a href="../reference/fs2-stream.html">FS2 streams</a>
+          · next backend phase introduces HTTP — not this unit.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

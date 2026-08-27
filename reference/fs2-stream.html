@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FS2 streams cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-016</p>
+      <h1>FS2 streams</h1>
+      <p class="lede">A Stream is a lazy pipeline of elements. compile runs it at the edge.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0012-streaming-fundamentals-with-fs2.html">Streaming fundamentals with FS2</a>.
+        Docs:
+        <a href="https://github.com/typelevel/fs2/blob/main/docs/guide.md">FS2 Guide</a>,
+        <a href="https://typelevel.org/fs2/api/fs2/Stream.html">Stream API</a>.
+        This repo pins <code>fs2-core</code> <code>3.12.2</code> and <code>cats-effect</code>
+        <code>3.6.4</code>.
+      </p>
+
+      <h2>Construct</h2>
+<pre><code>import fs2.Stream
+
+Stream.emit(1)
+Stream(1, 2, 3)
+Stream.emits(List("a", "b"))
+Stream.empty</code></pre>
+      <ul>
+        <li><code>Stream[F, A]</code> — effect <code>F</code> (often <code>Pure</code> or <code>IO</code>), element <code>A</code>.</li>
+        <li>Building a stream does not run effects or consume inputs.</li>
+      </ul>
+
+      <h2>Transform</h2>
+<pre><code>s.map(_ + 1).filter(_ &gt; 0).take(10)
+s ++ Stream.emit(99)          // append
+s.evalMap(a =&gt; IO(lookUp(a))) // effect per element
+s.evalTap(a =&gt; IO.println(a)) // effect, keep element</code></pre>
+      <ul>
+        <li><code>map</code> / <code>filter</code> / <code>collect</code> — pure steps on <code>Stream[Pure, A]</code> or inside a larger pipeline.</li>
+        <li><code>evalMap</code> — suspend work in <code>IO</code>; do not call <code>unsafeRunSync</code> inside the callback.</li>
+      </ul>
+
+      <h2>Run (edge)</h2>
+<pre><code>// F = IO:
+import cats.effect.unsafe.implicits.global
+s.compile.toList.unsafeRunSync()
+s.compile.drain.unsafeRunSync()
+s.compile.fold(0)(_ + _).unsafeRunSync()
+
+// F = Pure:
+s.compile.toList   // List[A], no IO</code></pre>
+      <ul>
+        <li><code>toList</code> — collect all elements (tests, small data).</li>
+        <li><code>drain</code> — run effects, discard output.</li>
+        <li><code>fold</code> — aggregate without storing the whole stream.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Keep domain logic pure; wrap lookups in <code>IO(...)</code> inside <code>evalMap</code>.</li>
+        <li>Run streams with <code>compile.*</code> only in <code>IOApp</code> or tests.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Call <code>unsafeRunSync</code> inside <code>evalMap</code> or library helpers.</li>
+        <li>Assume construction started I/O — same laziness as <code>IO</code>.</li>
+        <li>Introduce file/socket streams, <code>through</code> pipes, or <code>parJoin</code> before those units.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior effect units:
+          <a href="io.html">IO</a>,
+          <a href="resource-fiber.html">Resource and fibers</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

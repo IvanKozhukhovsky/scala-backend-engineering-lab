@@ -572,10 +572,23 @@
           "id": "scala-016",
           "sequence": 16,
           "title": "Streaming fundamentals with FS2",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "test",
+              "path": "src/test/scala/day16/Day16Suite.test.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day16/ExercisesDay16Suite.test.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0012-compile-pulls-pure-already-ran.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/18"
         }
       ]

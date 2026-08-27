@@ -100,6 +100,12 @@
   Authoritative contracts for `start`, `join`, `cancel`, and `background`.
 - [Cats Effect 3 API: Resource](https://typelevel.org/cats-effect/api/3.x/cats/effect/kernel/Resource.html)
   Authoritative wording: release on success, failure, and interrupt of `use`.
+- [FS2 documentation](https://fs2.io/)
+  Entry point for the streaming library used from `scala-016` onward.
+- [FS2 Guide](https://github.com/typelevel/fs2/blob/main/docs/guide.md)
+  Primary narrative for this unit: constructing streams, `map` / `filter`, `evalMap`, and `compile`. Stop before concurrency and I/O chapters.
+- [FS2 API: Stream](https://typelevel.org/fs2/api/fs2/Stream.html)
+  Authoritative contracts for `emit`, `emits`, `evalMap`, `evalTap`, and `compile`.
 - [http4s documentation](https://http4s.org/)
   Candidate primary source for the HTTP backend phase; the exact backend stack is chosen when that phase begins.
 
