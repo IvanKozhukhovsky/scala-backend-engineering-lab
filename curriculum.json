@@ -656,10 +656,27 @@
           "id": "scala-019",
           "sequence": 19,
           "title": "Service architecture, configuration and structured logging",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0015-service-architecture-configuration-and-logging.html"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day19/ExercisesDay19Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day19/ExercisesDay19.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0015-maxqty-is-a-prepared-int.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/21"
         },
         {

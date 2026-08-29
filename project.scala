@@ -10,6 +10,12 @@
 // circe-generic / paradise in that page are Scala 2 auto-derivation; this repo uses Scala 3 `derives`.
 //> using dep "org.http4s::http4s-dsl::0.23.36"
 //> using dep "org.http4s::http4s-circe::0.23.36"
+// Ciris: typed env/prop loading from Configurations at scala-019 teach time. No YAML/AWS modules.
+//> using dep "is.cir::ciris::3.15.0"
+// log4cats: CE3 logging algebra. 2.7.1 tracks cats-effect 3.6.x (2.8.0 wants CE 3.7).
+// NoOpLogger lives in core since 2.7.0. slf4j / logback wait until the observability unit.
+//> using dep "org.typelevel::log4cats-core::2.7.1"
+//> using test.dep "org.typelevel::log4cats-testing::2.7.1"
 //> using test.dep "org.scalameta::munit::1.0.4"
 // munit-scalacheck has no 1.0.4; 1.0.0 is the 1.0 line. ScalaCheck 1.18.0 is transitive.
 //> using test.dep "org.scalameta::munit-scalacheck::1.0.0"

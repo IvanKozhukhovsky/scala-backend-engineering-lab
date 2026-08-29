@@ -130,6 +130,18 @@
   Gentler table of safe / idempotent / cacheable methods. Optional; RFC 9110 is the assigned spec.
 - [MDN: HTTP response status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status)
   Status classes and the 200 / 404 / 405 wording used in this unit. Optional companion to the RFC.
+- [Ciris](https://cir.is/)
+  Entry point for typed configuration loading used from `scala-019` onward. This repo pins `ciris` `3.15.0` (Scala 3.3 line on the homepage at teach time).
+- [Ciris: Configurations](https://cir.is/docs/configurations)
+  Primary narrative for `scala-019`: `ConfigValue`, `env` / `prop` / `or`, `as`, `default`, `secret`, `parMapN`, `load`. Stop before Alternatives, custom sources, and AWS/YAML modules.
+- [Ciris API: Secret](https://cir.is/api/ciris/Secret.html)
+  Authoritative wording: `toString` is a short SHA-1 prefix; `value` unwraps the secret.
+- [log4cats](https://github.com/typelevel/log4cats)
+  Primary narrative for referentially transparent logging. This repo pins `log4cats-core` `2.7.1` (cats-effect 3.6 line; `2.8.0` depends on CE 3.7). Stop before slf4j, LoggerFactory, and interpolated syntax as skills.
+- [log4cats-testing](https://github.com/typelevel/log4cats/blob/main/testing/README.md)
+  `StructuredTestingLogger` for asserting on message plus `ctx` map. This unit does not require `munit-cats-effect`.
+- [http4s: Server Middleware](https://http4s.org/v0.23/docs/server-middleware.html)
+  Lists `Logger` / `RequestLogger` as string dumps of headers and bodies. Out of scope for `scala-019` — full bodies can be huge; structured `ctx` maps are the skill.
 
 ## Wisdom
 

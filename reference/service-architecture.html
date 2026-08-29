@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Service architecture, config and logs cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-019</p>
+      <h1>Service architecture, config and logs</h1>
+      <p class="lede">Load once. Pass values. Log maps at the rim. Keep the core pure.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0015-service-architecture-configuration-and-logging.html">Service architecture, configuration and structured logging</a>.
+        Docs:
+        <a href="https://cir.is/docs/configurations">Ciris Configurations</a>,
+        <a href="https://github.com/typelevel/log4cats/blob/main/README.md">log4cats README</a>.
+        This repo pins <code>ciris</code> <code>3.15.0</code> and
+        <code>log4cats-core</code> <code>2.7.1</code>.
+      </p>
+
+      <h2>Wiring</h2>
+<pre><code>final case class QuoteConfig(
+  serviceName: String,
+  minQty: Int,
+  apiToken: Secret[String]
+)
+
+def convertAmount(code: String, qty: Int, minQty: Int)
+  : Either[ConvertError, ConvertOut]
+
+def convertRoutes(
+  config: QuoteConfig,
+  logger: StructuredLogger[IO]
+): HttpRoutes[IO]</code></pre>
+      <ul>
+        <li>IOApp (or the test) loads config and holds the logger.</li>
+        <li>The core takes <code>Int</code> / <code>String</code>, not env names.</li>
+        <li><code>Secret.toString</code> is a short SHA-1 prefix; <code>.value</code> unwraps.</li>
+      </ul>
+
+      <h2>Ciris</h2>
+<pre><code>env("QUOTE_MIN_QTY").or(prop("quote.minQty")).as[Int].default(1)
+env("QUOTE_API_TOKEN").secret
+(a, b, c).parMapN(QuoteConfig.apply)
+quoteConfig.load[IO]
+missing.attempt[IO]  // Either, for tests</code></pre>
+
+      <h2>Structured log</h2>
+<pre><code>logger.info(Map("code" -&gt; code, "op" -&gt; "get_rate"))("ok") *&gt;
+  Ok(RateOut(code, cents))</code></pre>
+      <ul>
+        <li>Tests: <code>StructuredTestingLogger.impl[IO]()</code>, then <code>logged</code>.</li>
+        <li>Silent HTTP tests: <code>NoOpLogger.impl[IO]</code>.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Fail at startup if required config is missing.</li>
+        <li>Keep 400 / 422 / 404 / 405 from
+          <a href="json-codecs.html">scala-018</a>.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Call <code>sys.env</code> or <code>logger.info</code> inside <code>convertAmount</code>.</li>
+        <li>Put <code>Secret.value</code> in a log <code>ctx</code> or a JSON body.</li>
+        <li>Introduce Ember, slf4j/logback, http4s <code>Logger</code> middleware, metrics, or tracing in this unit.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="functional-core.html">Functional core</a>,
+          <a href="modules-boundaries.html">Modules and dependency direction</a>,
+          <a href="json-codecs.html">JSON codecs and API errors</a>,
+          <a href="io.html">IO</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

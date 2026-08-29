@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Service architecture, configuration and structured logging</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-019 · Phase 05 · Backend Engineering</p>
+      <h1>Service architecture, configuration and structured logging</h1>
+      <p class="lede">
+        You can load a typed config once, pass numbers and names into a pure core,
+        and log key-value context at the HTTP rim — without reading env or printing
+        inside <code>convertAmount</code>.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 18 already bought</a></li>
+          <li><a href="#wire">Config is a value</a></li>
+          <li><a href="#ciris">Ciris loads at the edge</a></li>
+          <li><a href="#log">Keys beside the message</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 11: the core returns a value; the shell does I/O.
+        Day 12: <code>import</code> points shell → core.
+        Day 18: <code>convertAmount</code> is pure; HTTP only maps the
+        <code>Either</code>.
+        Before reading on: if <code>convertAmount</code> called
+        <code>sys.env("QUOTE_MIN_QTY")</code> and <code>println</code>,
+        what would a unit test of <code>qty &lt; minQty</code> have to own?
+        Where should that lookup and that print live instead?
+      </section>
+
+      <h2 id="wire">Config is a value</h2>
+      <p>
+        A running service still has a functional core. The new shell jobs are
+        <em>load settings</em> and <em>record what happened</em>. Those are effects.
+        Decode them once into ordinary Scala values, then pass the values in — the
+        same move as passing time as data on
+        <a href="0007-immutability-pure-functions-and-functional-core.html">Day 11</a>.<a class="sidenote-ref" href="#sn-core">1</a>
+      </p>
+      <aside class="sidenote" id="sn-core">
+        Scala 3 Book, <cite>Pure Functions</cite>: keep a pure core and an impure
+        wrapper. Env and logs are the wrapper. Metrics, tracing, and health-check
+        productization wait until a later unit.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>def convertAmount(code, qty) =
+  val min = sys.env("QUOTE_MIN_QTY").toInt
+  println(s"qty=$qty")
+  …</code>
+    <span>The test now owns the process environment and stdout.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>def convertAmount(
+  code: String,
+  qty: Int,
+  minQty: Int
+): Either[ConvertError, ConvertOut]</code>
+    <span>The test passes <code>5</code>. HTTP read <code>config.minQty</code>.</span>
+  </div>
+  <figcaption>The core sees an Int. It does not see an env name.</figcaption>
+</figure>
+      <p>
+        <code>QuoteConfig</code> is a case class: service name, minimum qty, and a
+        token. Routes take <code>(config, logger)</code>. <code>GET /health</code>
+        returns the name. The token never appears in a body. Ember still waits —
+        you still run a constructed <code>Request</code> through
+        <code>HttpApp</code>.
+      </p>
+
+      <h2 id="ciris">Ciris loads at the edge</h2>
+      <p>
+        Ciris’s <code>ConfigValue</code> is a description of how to read env,
+        system properties, or files. It is not loaded until
+        <code>load[IO]</code> — the same “description until the rim” idea as
+        <a href="0010-cats-effect-io-and-referential-transparency.html"><code>IO</code></a>.<a class="sidenote-ref" href="#sn-ciris">2</a>
+      </p>
+      <aside class="sidenote" id="sn-ciris">
+        Ciris <cite>Configurations</cite>: <code>env</code>, <code>prop</code>,
+        <code>or</code> as fallback, <code>as[Int]</code> to decode,
+        <code>default</code> when missing, <code>parMapN</code> to combine and
+        accumulate errors, <code>load</code> to run in an effect.
+        Stop before AWS, YAML modules, and refined/enumeratum from the quick
+        example.
+      </aside>
+<pre><code>import ciris.*
+
+final case class QuoteConfig(
+  serviceName: String,
+  minQty: Int,
+  apiToken: Secret[String]
+)
+
+val quoteConfig: ConfigValue[Effect, QuoteConfig] =
+  (
+    env("QUOTE_SERVICE_NAME")
+      .or(prop("quote.serviceName"))
+      .as[String]
+      .default("quotes"),
+    env("QUOTE_MIN_QTY")
+      .or(prop("quote.minQty"))
+      .as[Int]
+      .default(1),
+    env("QUOTE_API_TOKEN")
+      .or(prop("quote.apiToken"))
+      .secret
+      .default(Secret("dev-token"))
+  ).parMapN(QuoteConfig.apply)
+
+quoteConfig.load[IO]  // IOApp / startup, not convertAmount</code></pre>
+      <p>
+        <code>secret</code> wraps the value in <code>Secret</code>.
+        <code>toString</code> is the first seven characters of a SHA-1 hash, not
+        the token. <code>.value</code> is the real string — use it only at a
+        boundary that must send it, never in a log line or a JSON error.<a class="sidenote-ref" href="#sn-secret">3</a>
+      </p>
+      <aside class="sidenote" id="sn-secret">
+        Ciris: <code>Secret("…").toString</code> is <code>Secret(0a7425a)</code>-style;
+        <code>value</code> unwraps. Errors from <code>.secret</code> are redacted
+        too. This repo pins <code>ciris</code> <code>3.15.0</code>.
+      </aside>
+      <p>
+        Prefer <code>attempt[IO]</code> in a test when you expect a missing key.
+        <code>load[IO]</code> fails the task if required values are absent — that
+        is the point of failing at startup instead of halfway through a request.
+      </p>
+
+      <h2 id="log">Keys beside the message</h2>
+      <p>
+        Logging is an effect. log4cats gives you
+        <code>StructuredLogger[F]</code>: <code>info(ctx)(msg)</code> returns
+        <code>F[Unit]</code>, so it composes with <code>IO</code> instead of
+        hiding a <code>println</code> inside a pure function.<a class="sidenote-ref" href="#sn-log4">4</a>
+      </p>
+      <aside class="sidenote" id="sn-log4">
+        log4cats README: vanilla <code>logger.info</code> is a side effect;
+        wrap it in an algebra so the program stays a value. Pass the logger in
+        (this unit) rather than summoning <code>F[_]: Sync</code> everywhere.
+        slf4j / logback and http4s <code>Logger</code> middleware wait — that
+        middleware stringifies whole bodies.
+      </aside>
+<pre><code>logger.info(Map("code" -&gt; code, "op" -&gt; "get_rate"))("ok") *&gt;
+  Ok(RateOut(code, cents))</code></pre>
+      <p>
+        The context map is the structure: <code>code</code> and <code>op</code>
+        are fields, not fragments glued into one English sentence. Tests use
+        <code>StructuredTestingLogger</code> and assert on
+        <code>ctx.get("code")</code>. <code>NoOpLogger</code> is the silent
+        stand-in when you only care about the HTTP status.
+      </p>
+      <p>
+        This repo pins <code>log4cats-core</code> <code>2.7.1</code> (Cats Effect
+        3.6 line). Do not put the token in <code>ctx</code>.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read Ciris
+        <a href="https://cir.is/docs/configurations">Configurations</a>
+        through <em>Loading</em> and <em>Secrets</em>
+        (stop before Alternatives / custom sources, and skip the refined
+        quick-example).
+        Skim the log4cats
+        <a href="https://github.com/typelevel/log4cats/blob/main/README.md">README</a>
+        through <em>Why log4cats?</em> and the
+        <code>Logger[F].info</code> example
+        (stop before LoggerFactory / slf4j / interpolated syntax as skills).
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Service architecture retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">QuoteConfig should be loaded:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">once then passed in</button>
+            <button type="button">on every domain call</button>
+            <button type="button">into a hidden var</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="IOApp (or the test) loads once and passes the case class. convertAmount receives minQty: Int." data-bad="sys.env inside convertAmount makes every test own the process environment."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Secret.toString reveals:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">a short hash prefix</button>
+            <button type="button">the raw token value</button>
+            <button type="button">the config key name</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Ciris shows seven SHA-1 hex chars. .value unwraps; keep that off logs and JSON." data-bad="toString is Secret(0a7425a), not the token and not QUOTE_API_TOKEN."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">logger.info(ctx)(msg) stores:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">keys beside the message</button>
+            <button type="button">one interpolated log line</button>
+            <button type="button">the token in plaintext</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="ctx is a Map of fields. Tests assert ctx.get(&quot;code&quot;). Do not put Secret.value in ctx." data-bad="Structure is the map, not s&quot;code=$code&quot; as the only record, and not the API token."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">convertAmount should take:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">minQty as an Int</button>
+            <button type="button">env from Ciris load</button>
+            <button type="button">logger from the rim</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="The shell already decoded config. The core is still a function of numbers and codes." data-bad="Ciris load and StructuredLogger are rim effects. Passing them in would make the core an IO program."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day19.Day19Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>orderConfig</code>, <code>orderOf</code>, and
+        <code>orderRoutes</code> in
+        <a href="../src/main/scala/day19/ExercisesDay19.scala"><code>ExercisesDay19.scala</code></a>
+        (<code>orderApp</code> is already <code>orNotFound</code>).
+        The spec is
+        <a href="../src/test/scala/day19/ExercisesDay19Suite.test.scala"><code>ExercisesDay19Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        <code>orderOf</code> is pure: <code>InvalidQty</code> / <code>ExcessQty</code>
+        / <code>UnknownCode</code> or <code>OrderOut</code>. Pass
+        <code>maxQty</code> as <code>Int</code>.
+        <code>GET /health</code> is JSON <code>HealthOut</code> from
+        <code>config.shopName</code>.
+        Successful <code>POST /orders</code> logs INFO with
+        <code>code</code> and <code>op</code>=<code>order</code>.
+        Then run
+        <code>scala-cli test . --test-only 'day19.ExercisesDay19Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why is minQty an Int and not QuoteConfig?”)
+        over “explain architecture again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0014-json-codecs-validation-and-api-errors.html">JSON codecs, validation and API errors</a>
+          · Cheat sheet:
+          <a href="../reference/service-architecture.html">Service architecture, config and logs</a>
+          · HTTP integration testing is the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

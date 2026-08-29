@@ -86,7 +86,7 @@ given EntityEncoder[IO, ConvertOut] = jsonEncoderOf[IO, ConvertOut]</code></pre>
       <ul>
         <li>Map a missing body field and a missing URI to the same status or string.</li>
         <li>Call <code>req.as[A]</code> and expect a 400 from <code>HttpApp.run</code>.</li>
-        <li>Introduce Ember, logging middleware, or integration-test servers in this unit.</li>
+        <li>Introduce Ember, service-wide config loading, or logging middleware in this unit.</li>
       </ul>
 
       <footer class="meta">
