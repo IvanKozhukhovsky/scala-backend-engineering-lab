@@ -629,10 +629,27 @@
           "id": "scala-018",
           "sequence": 18,
           "title": "JSON codecs, validation and API errors",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "test",
+              "path": "src/test/scala/day18/Day18Suite.test.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day18/ExercisesDay18Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day18/ExercisesDay18.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0014-422-is-the-body-field.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/20"
         },
         {

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JSON codecs and API errors cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-018</p>
+      <h1>JSON codecs and API errors</h1>
+      <p class="lede">Codecs at the rim. Either in the core. 400 vs 422 vs 404 vs 405.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0014-json-codecs-validation-and-api-errors.html">JSON codecs, validation and API errors</a>.
+        Docs:
+        <a href="https://http4s.org/v0.23/docs/json.html">http4s JSON</a>,
+        <a href="https://http4s.org/v0.23/docs/error-handling.html">Error Handling</a>,
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.400">RFC 9110 §15.5.1</a>,
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.422">§15.5.21</a>.
+        This repo pins <code>http4s-circe</code> <code>0.23.36</code>.
+      </p>
+
+      <h2>Codecs</h2>
+<pre><code>final case class RateOut(code: String, cents: Int)
+  derives io.circe.Codec.AsObject
+
+given EntityDecoder[IO, ConvertIn] = jsonOf[IO, ConvertIn]
+given EntityEncoder[IO, ConvertOut] = jsonEncoderOf[IO, ConvertOut]</code></pre>
+      <ul>
+        <li><code>Encoder[A]</code> writes JSON; <code>Decoder[A]</code> reads it.</li>
+        <li><code>jsonOf</code> / <code>jsonEncoderOf</code> are the HTTP bridges.</li>
+        <li>Prefer <code>attemptAs[A].value</code> over <code>as[A]</code> without Ember.</li>
+      </ul>
+
+      <h2>Statuses</h2>
+      <table>
+        <thead>
+          <tr><th>Situation</th><th>Status</th><th>Body</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Not JSON</td>
+            <td>400</td>
+            <td><code>malformed_json</code></td>
+          </tr>
+          <tr>
+            <td>JSON, wrong shape</td>
+            <td>422</td>
+            <td><code>invalid_json</code></td>
+          </tr>
+          <tr>
+            <td>JSON, domain rule</td>
+            <td>422</td>
+            <td><code>invalid_qty</code> / <code>unknown_code</code> / …</td>
+          </tr>
+          <tr>
+            <td>Missing item URI</td>
+            <td>404</td>
+            <td><code>not_found</code></td>
+          </tr>
+          <tr>
+            <td>URI exists, wrong method</td>
+            <td>405</td>
+            <td>send <code>Allow</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        http4s DSL: <code>UnprocessableContent</code> is 422 (RFC name; formerly
+        Unprocessable Entity).
+      </p>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Keep <code>rateOf</code> / <code>convertAmount</code> pure.</li>
+        <li>Give each failure a distinct <code>{"error":…}</code> string.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Map a missing body field and a missing URI to the same status or string.</li>
+        <li>Call <code>req.as[A]</code> and expect a 400 from <code>HttpApp.run</code>.</li>
+        <li>Introduce Ember, logging middleware, or integration-test servers in this unit.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="http-rest.html">HTTP and REST</a>,
+          <a href="either-try.html">Either and Try</a>,
+          <a href="traits-type-classes.html">Type classes</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

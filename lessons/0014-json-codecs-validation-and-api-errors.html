@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JSON codecs, validation and API errors</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-018 · Phase 05 · Backend Engineering</p>
+      <h1>JSON codecs, validation and API errors</h1>
+      <p class="lede">
+        You can turn a case class into an <code>application/json</code> body and back,
+        keep domain checks as <code>Either</code>, and map parse vs meaning failures
+        onto 400 and 422 — without binding a port.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 17 already bought</a></li>
+          <li><a href="#codec">Encoder and Decoder are type classes</a></li>
+          <li><a href="#http">jsonOf sits at the HTTP edge</a></li>
+          <li><a href="#errors">400 syntax, 422 meaning</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 17: <code>POST /quotes/JPY</code> is 405 because the URI template exists;
+        404 is a GET miss. JSON is a representation, not a new resource model.
+        Before reading on: if a client <code>POST</code>s <code>/convert</code> with
+        <code>{"code":"JPY","qty":10}</code>, is that a missing URI (404) or a body
+        the resource cannot process? If the body is <code>{not json</code>, should
+        that be the same status as <code>qty: 0</code>?
+      </section>
+
+      <h2 id="codec">Encoder and Decoder are type classes</h2>
+      <p>
+        JSON is a serialization format at the rim. Inside the service you still want
+        case classes. circe’s <code>Encoder[A]</code> writes <code>A</code> as
+        <code>Json</code>; <code>Decoder[A]</code> reads the other way — the same
+        “given instance beside the type” shape as
+        <a href="0004-traits-extension-methods-and-type-classes.html">Day 08</a>.<a class="sidenote-ref" href="#sn-circe">1</a>
+      </p>
+      <aside class="sidenote" id="sn-circe">
+        http4s JSON Handling recommends circe and shows a hand-written
+        <code>Encoder</code>, then derivation. The page’s
+        <code>circe-generic</code> + paradise plugin is Scala 2. On Scala 3.3 this
+        repo uses <code>derives Codec.AsObject</code> from circe-core (pulled in by
+        <code>http4s-circe</code>).
+      </aside>
+<pre><code>import io.circe.Codec
+
+final case class RateOut(code: String, cents: Int)
+  derives Codec.AsObject
+
+RateOut("EUR", 108)
+// JSON object {"code":"EUR","cents":108}</code></pre>
+      <p>
+        <code>Codec.AsObject</code> is both encoder and decoder for a JSON object.
+        Field names follow the case class. Keep <code>rateOf</code> a pure
+        <code>Option</code> function — the codec does not look anything up.
+      </p>
+
+      <h2 id="http">jsonOf sits at the HTTP edge</h2>
+      <p>
+        http4s still speaks bytes. An <code>EntityEncoder[F, A]</code> turns
+        <code>A</code> into a body and sets <code>Content-Type: application/json</code>.
+        An <code>EntityDecoder[F, A]</code> parses the other way.
+        <code>jsonEncoderOf</code> / <code>jsonOf</code> are the bridges from a circe
+        codec.<a class="sidenote-ref" href="#sn-jsonof">2</a>
+      </p>
+      <aside class="sidenote" id="sn-jsonof">
+        http4s JSON Handling: <code>jsonOf[F, A]</code> needs a
+        <code>Decoder[A]</code> and yields <code>EntityDecoder[F, A]</code>.
+        Prefer that over <code>CirceEntityCodec._</code>, which would try JSON for
+        every type with a decoder — including in scopes that also serve text.
+      </aside>
+<pre><code>import org.http4s.circe.jsonOf
+import org.http4s.circe.jsonEncoderOf
+
+given EntityDecoder[IO, ConvertIn] = jsonOf[IO, ConvertIn]
+given EntityEncoder[IO, ConvertOut] = jsonEncoderOf[IO, ConvertOut]
+
+Ok(ConvertOut("EUR", 1080))   // 200 + application/json</code></pre>
+      <p>
+        Day 17 used <code>req.as[String]</code> on the response. For a request body,
+        prefer <code>req.attemptAs[ConvertIn].value</code>: you get
+        <code>Either[DecodeFailure, ConvertIn]</code> — the
+        <a href="0002-either-try-and-explicit-failure.html"><code>Either</code></a>
+        you already match on. <code>req.as[A]</code> fails the <code>IO</code>
+        instead. Without Ember, that failed task is <em>not</em> turned into an HTTP
+        status; it blows up the test.<a class="sidenote-ref" href="#sn-ember">3</a>
+      </p>
+      <aside class="sidenote" id="sn-ember">
+        http4s Error Handling: if a <code>MessageFailure</code> is not handled by
+        the service, it reaches the <em>backend</em> as a failed task, and the
+        server maps it to a response. This unit still runs
+        <code>HttpApp.run</code> in-process, so you map the <code>Either</code>
+        yourself.
+      </aside>
+
+      <h2 id="errors">400 syntax, 422 meaning</h2>
+      <p>
+        RFC 9110 splits two client mistakes that look similar in a debugger.<a class="sidenote-ref" href="#sn-rfc">4</a>
+      </p>
+      <aside class="sidenote" id="sn-rfc">
+        RFC 9110 §15.5.1: 400 is malformed syntax (or similar). §15.5.21: 422
+        Unprocessable Content — the content type and syntax are fine, but the
+        instructions cannot be processed. http4s 0.23.31+ names the DSL
+        <code>UnprocessableContent</code> (422); older pages say Unprocessable Entity.
+      </aside>
+      <ul>
+        <li><code>MalformedMessageBodyFailure</code> — not JSON. Map to 400 and
+          <code>{"error":"malformed_json"}</code>.</li>
+        <li><code>InvalidMessageBodyFailure</code> — JSON object, wrong shape
+          (missing field, <code>qty</code> a string). Map to 422 and
+          <code>{"error":"invalid_json"}</code>.</li>
+        <li>Domain <code>Either</code> — <code>qty &lt; 1</code>, unknown code in the
+          <em>body</em>. Still 422, with a <em>different</em> error string.</li>
+        <li>GET on a missing item URI — still 404 <code>not_found</code>, as on Day 17.
+          Wrong method — still 405 + <code>Allow</code>. Do not reuse
+          <code>not_found</code> for those.</li>
+      </ul>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>POST /convert
+{"code":"JPY","qty":10}
+→ 404 not_found</code>
+    <span>The URI <code>/convert</code> exists. JPY is a field, not a path.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>POST /convert
+{"code":"JPY","qty":10}
+→ 422 unknown_code</code>
+    <span>GET /rates/JPY can still be 404 — that item URI is missing.</span>
+  </div>
+  <figcaption>404 names a URI. 422 names instructions the resource cannot run.</figcaption>
+</figure>
+<pre><code>req.attemptAs[ConvertIn].value.flatMap {
+  case Left(_: MalformedMessageBodyFailure) =&gt;
+    BadRequest(ApiError("malformed_json"))
+  case Left(_: InvalidMessageBodyFailure) =&gt;
+    UnprocessableContent(ApiError("invalid_json"))
+  case Right(in) =&gt;
+    convertAmount(in.code, in.qty) match
+      case Left(ConvertError.InvalidQty) =&gt;
+        UnprocessableContent(ApiError("invalid_qty"))
+      case Left(ConvertError.UnknownCode) =&gt;
+        UnprocessableContent(ApiError("unknown_code"))
+      case Right(out) =&gt;
+        Ok(out)
+}</code></pre>
+      <p>
+        <code>convertAmount</code> stays pure. HTTP only chooses the status and the
+        error string. This repo pins <code>http4s-circe</code> <code>0.23.36</code>
+        next to <code>http4s-dsl</code>. Ember still waits.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read http4s
+        <a href="https://http4s.org/v0.23/docs/json.html">JSON Handling</a>
+        through <em>Decoding JSON to a case class</em>
+        (stop before the Ember hello-world server/client).
+        Skim
+        <a href="https://http4s.org/v0.23/docs/error-handling.html">Error Handling</a>
+        for <code>MalformedMessageBodyFailure</code> vs
+        <code>InvalidMessageBodyFailure</code> only (skip the Ember
+        <code>ErrorAction</code> middleware).
+        RFC 9110
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.400">§15.5.1</a>
+        and
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.422">§15.5.21</a>
+        are the status wording.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="JSON codecs retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Circe Encoder[Hello] does:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">writes Hello as JSON</button>
+            <button type="button">reads JSON as Hello</button>
+            <button type="button">binds Ember on 8080</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Encoder writes. Decoder reads. Ember is a server — not a codec." data-bad="Decoder reads JSON into Hello. Encoder is the write direction."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Body is {not json:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">returns HTTP status 400</button>
+            <button type="button">returns HTTP status 422</button>
+            <button type="button">returns HTTP status 404</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Malformed syntax is 400. 422 needs well-formed content the resource still cannot process." data-bad="404 is a missing URI. 422 is valid syntax, unusable instructions."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">POST /convert unknown code:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">is 422 not 404</button>
+            <button type="button">is 404 not 422</button>
+            <button type="button">is 200 empty body</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="/convert exists. The body field is the problem — same 422 family as invalid_qty." data-bad="GET /rates/JPY is 404. POST /convert is not that URI."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Uncaught MessageFailure without Ember:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">fails the IO task</button>
+            <button type="button">always returns HTTP 400</button>
+            <button type="button">always binds a port</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="The server backend would map it. HttpApp.run in a test does not. Use attemptAs." data-bad="req.as without a handler fails IO. Ember is what would turn that into a status."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day18.Day18Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>orderOf</code> and <code>orderRoutes</code> in
+        <a href="../src/main/scala/day18/ExercisesDay18.scala"><code>ExercisesDay18.scala</code></a>
+        (<code>orderApp</code> is already <code>orNotFound</code>).
+        The spec is
+        <a href="../src/test/scala/day18/ExercisesDay18Suite.test.scala"><code>ExercisesDay18Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        <code>orderOf</code> is pure: trim the code, then
+        <code>InvalidCode</code> / <code>InvalidQty</code> / <code>UnknownCode</code>
+        or <code>OrderOut</code>.
+        <code>GET /orders/:code</code> is JSON <code>RateOut</code> or 404
+        <code>not_found</code>.
+        <code>POST /orders</code> uses the same error strings as the lesson, plus
+        <code>invalid_code</code>.
+        Then run
+        <code>scala-cli test . --test-only 'day18.ExercisesDay18Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why is missing qty 422 not 400?”) over
+        “explain JSON again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0013-http-and-rest-contracts.html">HTTP and REST contracts</a>
+          · Cheat sheet:
+          <a href="../reference/json-codecs.html">JSON codecs and API errors</a>
+          · Service architecture is the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

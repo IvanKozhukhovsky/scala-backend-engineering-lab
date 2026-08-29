@@ -114,8 +114,18 @@
   `HttpRoutes[F]` as `Request => F[Response]`. Stop before EmberServerBuilder / `Router` as skills — this unit runs requests in-process.
 - [http4s: The DSL](https://http4s.org/v0.23/docs/dsl.html)
   Primary narrative for this unit: `HttpRoutes.of`, `GET -> Root / …`, `Ok` / `NotFound` / `MethodNotAllowed`, testing with a constructed `Request` and `.orNotFound`. Stop before cookies, `Future` bodies, and streaming drip examples.
+- [http4s: JSON Handling](https://http4s.org/v0.23/docs/json.html)
+  Primary narrative for `scala-018`: `http4s-circe` `0.23.36`, `jsonOf` / `jsonEncoderOf`, circe `Encoder` / `Decoder`. Stop before the Ember hello-world server and client. The page’s paradise plugin is Scala 2; this repo uses Scala 3 `derives Codec.AsObject`.
+- [http4s: Entity Handling](https://http4s.org/v0.23/docs/entity.html)
+  `EntityEncoder` / `EntityDecoder` as the body + media-type bridge. `jsonOf` / `jsonEncoderOf` are listed under JSON.
+- [http4s: Error Handling](https://http4s.org/v0.23/docs/error-handling.html)
+  `MalformedMessageBodyFailure` (syntax) vs `InvalidMessageBodyFailure` (semantics). Unhandled `MessageFailure` reaches the backend as a failed task — map it yourself when running `HttpApp` in-process. Stop before Ember `ErrorAction` middleware.
 - [RFC 9110: HTTP Semantics — Methods](https://www.rfc-editor.org/rfc/rfc9110.html#name-methods)
   Authoritative wording: safe methods (GET/HEAD/OPTIONS/TRACE), idempotent methods (safe + PUT + DELETE), POST is neither; 405 must include `Allow`.
+- [RFC 9110: 400 Bad Request](https://www.rfc-editor.org/rfc/rfc9110.html#status.400)
+  Malformed syntax (and similar client errors). Used for broken JSON in `scala-018`.
+- [RFC 9110: 422 Unprocessable Content](https://www.rfc-editor.org/rfc/rfc9110.html#status.422)
+  Content type and syntax are correct; the instructions cannot be processed. http4s 0.23.31+ DSL: `UnprocessableContent`.
 - [MDN: HTTP request methods](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods)
   Gentler table of safe / idempotent / cacheable methods. Optional; RFC 9110 is the assigned spec.
 - [MDN: HTTP response status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status)
