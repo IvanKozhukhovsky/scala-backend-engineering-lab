@@ -713,11 +713,28 @@
           "id": "scala-021",
           "sequence": 21,
           "title": "Relational modeling and SQL from Scala",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
-          "githubIssue": null
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0017-relational-modeling-and-sql-from-scala.html"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day21/ExercisesDay21Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day21/ExercisesDay21.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0016-gbp-is-a-bind-parameter.md"
+            }
+          ],
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/23"
         },
         {
           "id": "scala-022",
@@ -727,7 +744,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/24"
         },
         {
           "id": "scala-023",
@@ -737,7 +754,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/26"
         },
         {
           "id": "scala-024",
@@ -747,7 +764,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/25"
         }
       ]
     },

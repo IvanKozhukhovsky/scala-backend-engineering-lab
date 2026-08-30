@@ -19,6 +19,10 @@
 // log4cats: CE3 logging algebra. 2.7.1 tracks cats-effect 3.6.x (2.8.0 wants CE 3.7).
 // NoOpLogger lives in core since 2.7.0. slf4j / logback wait until the observability unit.
 //> using dep "org.typelevel::log4cats-core::2.7.1"
+// doobie: functional JDBC. Homepage pin at scala-021 teach time: 1.0.0-RC13,
+// org.typelevel (not org.tpolecat), package org.typelevel.doobie.
+// Core only this unit — no Transactor, postgres driver, Hikari, or H2.
+//> using dep "org.typelevel::doobie-core::1.0.0-RC13"
 //> using test.dep "org.typelevel::log4cats-testing::2.7.1"
 //> using test.dep "org.scalameta::munit::1.0.4"
 // munit-scalacheck has no 1.0.4; 1.0.0 is the 1.0 line. ScalaCheck 1.18.0 is transitive.

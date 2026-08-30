@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relational modeling and SQL from Scala</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-021 · Phase 06 · Persistence</p>
+      <h1>Relational modeling and SQL from Scala</h1>
+      <p class="lede">
+        You can model a catalog as a table, write parameterized SQL with
+        doobie’s <code>sql</code> interpolator, and inspect the statement as a
+        value — without opening a JDBC connection.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 20 already bought</a></li>
+          <li><a href="#row">A row is not a Map</a></li>
+          <li><a href="#sql">sql interpolator is a PreparedStatement</a></li>
+          <li><a href="#cio">ConnectionIO is a description</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 11: the core returns a value; the shell does I/O.
+        Day 14: <code>IO { }</code> does not run at construction.
+        Day 17: building <code>HttpRoutes</code> does not bind a port.
+        <code>rateOf</code> is still <code>Map.get</code>.
+        Before reading on: if lookup became
+        <code>s"select cents from rate where code = '$code'"</code>,
+        what happens when <code>code</code> is
+        <code>x'; drop table rate; --</code>?
+        When does that string become the database’s problem?
+      </section>
+
+      <h2 id="row">A row is not a Map</h2>
+      <p>
+        The in-memory catalog is a <code>Map[String, Int]</code>: the key is the
+        currency code, the value is cents. A relational table stores the same
+        facts as rows. The key becomes a primary key. Each field becomes a
+        column with a SQL type. Nullability is explicit: <code>NOT NULL</code>
+        maps to <code>Int</code>; a nullable column maps to
+        <code>Option[Int]</code>.<a class="sidenote-ref" href="#sn-orm">1</a>
+      </p>
+      <aside class="sidenote" id="sn-orm">
+        doobie’s homepage: it is not an ORM and not a relational algebra.
+        You write SQL. It maps rows to Scala types. This repo pins
+        <code>doobie-core</code> <code>1.0.0-RC13</code>
+        (<code>org.typelevel</code>, package
+        <code>org.typelevel.doobie</code>). Postgres, Hikari, and H2 wait.
+      </aside>
+<table>
+  <thead>
+    <tr>
+      <th>Scala</th>
+      <th>SQL</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>RateRow.code</code></td>
+      <td><code>rate.code VARCHAR PRIMARY KEY</code></td>
+    </tr>
+    <tr>
+      <td><code>RateRow.cents</code></td>
+      <td><code>rate.cents INTEGER NOT NULL</code></td>
+    </tr>
+    <tr>
+      <td><code>rateOf("EUR")</code></td>
+      <td>one row whose <code>code</code> is <code>EUR</code>, or none</td>
+    </tr>
+  </tbody>
+</table>
+<pre><code>CREATE TABLE rate (
+  code  VARCHAR NOT NULL PRIMARY KEY,
+  cents INTEGER NOT NULL
+)
+
+final case class RateRow(code: String, cents: Int)</code></pre>
+      <p>
+        <code>query[RateRow]</code> maps columns by <em>position</em>, in
+        SELECT-list order, to case-class fields in declaration order.
+        <code>select cents, code</code> still compiles and silently swaps
+        the fields at runtime. Name the columns in field order.<a class="sidenote-ref" href="#sn-pos">2</a>
+      </p>
+      <aside class="sidenote" id="sn-pos">
+        Selecting Data: a case class is a supported row type.
+        Shapeless records, nested products, and
+        <code>Stream</code> are later. This unit reads
+        <code>Query0.sql</code> — Diagnostics on the query value.
+      </aside>
+
+      <h2 id="sql">sql interpolator is a PreparedStatement</h2>
+      <p>
+        <code>$code</code> inside <code>sql"…"</code> looks like string
+        interpolation. It is not. doobie builds a
+        <code>PreparedStatement</code> and sets the value with
+        <code>setString</code> / <code>setInt</code>. In the SQL text the
+        parameter is <code>?</code>. The hostile string never becomes syntax.
+        <code>s"…$code"</code> <em>is</em> concatenation: it is how SQL
+        injection is written.<a class="sidenote-ref" href="#sn-put">3</a>
+      </p>
+      <aside class="sidenote" id="sn-put">
+        Parameterized Queries: interpolated values need a <code>Put</code>
+        instance (JDBC types, including <code>String</code> and
+        <code>Int</code>). Do not quote <code>$code</code> —
+        <code>where code = '$code'</code> becomes the literal
+        <code>'?'</code>, which is not a bind parameter.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>s"select cents from rate
+where code = '$code'"</code>
+    <span>The code is SQL syntax. A quote in the value changes the statement.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>sql"select code, cents
+from rate
+where code = $code"</code>
+    <span><code>Query0.sql</code> is <code>… where code = ?</code>. The value stays out.</span>
+  </div>
+  <figcaption>A string is syntax. A placeholder is data.</figcaption>
+</figure>
+<pre><code>import org.typelevel.doobie.*
+import org.typelevel.doobie.implicits.*
+
+def findRate(code: String): Query0[RateRow] =
+  sql"select code, cents from rate where code = $code".query[RateRow]
+
+def insertRate(row: RateRow): Update0 =
+  sql"insert into rate (code, cents) values (${row.code}, ${row.cents})".update</code></pre>
+      <p>
+        <code>.query[A]</code> reads rows. <code>.update</code> modifies them
+        (INSERT / UPDATE / DDL). Both values expose <code>.sql</code> so a
+        test can assert on the statement without a database.
+        <code>rateOf</code> stays the pure <code>Map</code> — SQL is a new
+        description of the same lookup, not a replacement yet.
+      </p>
+
+      <h2 id="cio">ConnectionIO is a description</h2>
+      <p>
+        <code>findRate(code).option</code> has type
+        <code>ConnectionIO[Option[RateRow]]</code>: zero or one row, like
+        <code>Map.get</code>. <code>.unique</code> demands exactly one row.
+        <code>insertRate(row).run</code> is
+        <code>ConnectionIO[Int]</code> — rows affected.
+        Constructing any of these does not connect. A
+        <code>Transactor</code> turns <code>ConnectionIO</code> into
+        <code>IO</code> the way <code>unsafeRunSync</code> runs
+        <code>IO</code>. That edge is the next unit.<a class="sidenote-ref" href="#sn-cio">4</a>
+      </p>
+      <aside class="sidenote" id="sn-cio">
+        Connecting: <code>ConnectionIO[A]</code> needs a
+        <code>java.sql.Connection</code> later.
+        <code>transact</code> also starts a transaction. Do not add
+        <code>Transactor.fromDriverManager</code>, a JDBC URL, or H2 here.
+        Print <code>findRate("EUR").sql</code> if you want to see the
+        <code>?</code> — Day 21’s <code>@main</code> does that.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>Transactor.fromDriverManager[IO](
+  … jdbc:postgresql:world …
+)
+findRate(code).option.transact(xa)</code>
+    <span>That is a live session. This unit has no database.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>findRate("EUR").sql
+// select … where code = ?</code>
+    <span>The statement is data. Tests assert on it. Postgres waits.</span>
+  </div>
+  <figcaption>Same split as HttpRoutes: construct now, run at the edge later.</figcaption>
+</figure>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read doobie
+        <a href="https://typelevel.org/doobie/docs/05-Parameterized.html">Parameterized Queries</a>
+        through <em>Multiple Parameters</em>
+        (stop before <code>IN</code> clauses and <code>Fragments</code>).
+        Skim
+        <a href="https://typelevel.org/doobie/docs/04-Selecting.html">Selecting Data</a>
+        through mapping rows to a case class
+        (stop before HList, shapeless records, and <code>Stream</code> as skills).
+        Skim
+        <a href="https://typelevel.org/doobie/docs/03-Connecting.html">Connecting</a>
+        for <code>ConnectionIO</code> as a program that is not run yet
+        (stop before <code>Transactor.fromDriverManager</code> as a skill).
+        The
+        <a href="https://typelevel.org/doobie/">homepage</a>
+        is the install pin already in this repo
+        (<code>org.typelevel</code> <code>doobie-core</code> <code>1.0.0-RC13</code>).
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Relational modeling and SQL retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Inside sql"…", $code becomes:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">a JDBC ? placeholder</button>
+            <button type="button">the raw concatenated string</button>
+            <button type="button">quoted SQL string syntax</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="PreparedStatement. Query0.sql shows ?. The value is set, not spliced." data-bad="s-interpolation concatenates. where code = '$code' becomes the literal '?' — still not a bind."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Building Query0.option does:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">describe a later lookup</button>
+            <button type="button">open a JDBC connection</button>
+            <button type="button">return the RateRow now</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="ConnectionIO is a description, like IO. transact is the next unit." data-bad="No connection is opened. unique/option/run still need a Transactor to become IO."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">query[RateRow] maps columns:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">by SELECT list order</button>
+            <button type="button">by matching column names</button>
+            <button type="button">by the primary key</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Position, not names. select cents, code would swap the fields." data-bad="doobie does not match case-class names to column names. Write the SELECT in field order."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">findRate versus rateOf:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">SQL value versus Map</button>
+            <button type="button">both hit live Postgres</button>
+            <button type="button">both need a Transactor</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="rateOf stays Map.get. findRate is a Query0 you can inspect without a database." data-bad="rateOf is still pure. Transactor and PostgreSQL are the repository unit."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day21.Day21Suite'</code></pre>
+      <p>
+        Optionally run the main — it prints <code>findRate("EUR").sql</code>,
+        not a query result:
+      </p>
+<pre><code>scala-cli run . --main-class day21.Day21</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>findFill</code> and <code>insertFill</code> in
+        <a href="../src/main/scala/day21/ExercisesDay21.scala"><code>ExercisesDay21.scala</code></a>.
+        The spec is
+        <a href="../src/test/scala/day21/ExercisesDay21Suite.test.scala"><code>ExercisesDay21Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        Table <code>fill</code>: <code>code</code> VARCHAR primary key,
+        <code>qty</code> INTEGER NOT NULL, <code>cents</code> INTEGER NOT NULL.
+        Map rows to the existing <code>FillRow</code>.
+        Use <code>sql"…"</code> so values become <code>?</code>.
+        Return <code>Query0</code> / <code>Update0</code>.
+        Do not transact, do not quote <code>$code</code>, do not introduce H2.
+        Then run
+        <code>scala-cli test . --test-only 'day21.ExercisesDay21Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why is <code>'?'</code> wrong?”) over
+        “explain SQL again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0016-http-integration-testing.html">HTTP integration testing</a>
+          · Cheat sheet:
+          <a href="../reference/sql-doobie.html">Relational SQL with doobie</a>
+          · A PostgreSQL repository is the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

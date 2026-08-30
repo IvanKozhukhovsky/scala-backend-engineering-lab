@@ -148,6 +148,20 @@
   In-process client from an `HttpApp`. Useful as a fake; it is not a socket integration test.
 - [http4s API: Server.baseUri](https://http4s.org/v0.23/api/org/http4s/server/Server.html)
   Live base URI (scheme, host, bound port) after Ember acquires the socket. Tests bind `127.0.0.1` and `port"0"` so this URI is a destination and does not collide on 8080.
+- [doobie](https://typelevel.org/doobie/)
+  Entry point for the functional JDBC layer used from `scala-021`. Homepage pin at teach time: `org.typelevel` `doobie-core` `1.0.0-RC13` (Scala 3, Cats Effect 3). Package is `org.typelevel.doobie` — not `org.tpolecat` / `doobie.`. Not an ORM: you write SQL.
+- [doobie: Introduction](https://typelevel.org/doobie/docs/01-Introduction.html)
+  Book framing and the same version pin. Skip the local `world` database setup until a later unit opens PostgreSQL.
+- [doobie: Connecting](https://typelevel.org/doobie/docs/03-Connecting.html)
+  `ConnectionIO[A]` as a program that needs a `Connection` later; `sql` interpolator; `transact` as the edge. For `scala-021` stop before `Transactor.fromDriverManager` as a skill.
+- [doobie: Selecting Data](https://typelevel.org/doobie/docs/04-Selecting.html)
+  `Query0`, `.query[A]`, `.option` / `.unique` / `.to[List]`, mapping rows to a case class by column position. Stop before HList, shapeless records, YOLO, and `Stream` as skills.
+- [doobie: Parameterized Queries](https://typelevel.org/doobie/docs/05-Parameterized.html)
+  Primary narrative for `scala-021`: `$minPop` looks like interpolation but becomes a `PreparedStatement` placeholder. Stop before `IN` clauses and `Fragments`.
+- [doobie: DDL, Inserting, and Updating](https://typelevel.org/doobie/docs/07-Updating.html)
+  `.update` / `Update0` for INSERT. For `scala-021` read through *Inserting*; stop before generated keys, `lastval`, and batch `Update`.
+- [doobie API: Query0](https://github.com/typelevel/doobie/blob/v1.0.0-RC13/modules/core/src/main/scala/doobie/util/query.scala)
+  Authoritative `sql: String` diagnostic on the query value — enough to test statements without a live database.
 
 ## Wisdom
 
@@ -158,5 +172,6 @@
 
 ## Gaps
 
-- PostgreSQL persistence library and migration tooling will be selected at the persistence phase from current primary documentation rather than pinned prematurely.
+- Migration tooling will be selected at `scala-023` from current primary documentation rather than pinned prematurely.
+- PostgreSQL driver, pooling (`doobie-postgres` / Hikari), and a live `Transactor` wait until `scala-022`.
 - Deployment platform will be selected only when the capstone reaches production-readiness work.

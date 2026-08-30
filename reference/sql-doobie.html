@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relational SQL with doobie cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-021</p>
+      <h1>Relational SQL with doobie</h1>
+      <p class="lede">Table is the catalog. sql interpolator binds. ConnectionIO does not connect yet.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0017-relational-modeling-and-sql-from-scala.html">Relational modeling and SQL from Scala</a>.
+        Docs:
+        <a href="https://typelevel.org/doobie/docs/05-Parameterized.html">Parameterized Queries</a>,
+        <a href="https://typelevel.org/doobie/docs/04-Selecting.html">Selecting Data</a>,
+        <a href="https://typelevel.org/doobie/docs/03-Connecting.html">Connecting</a>.
+        This repo pins <code>org.typelevel</code> <code>doobie-core</code>
+        <code>1.0.0-RC13</code>. Package: <code>org.typelevel.doobie</code>.
+      </p>
+
+      <h2>Row ↔ table</h2>
+<pre><code>CREATE TABLE rate (
+  code  VARCHAR NOT NULL PRIMARY KEY,
+  cents INTEGER NOT NULL
+)
+
+final case class RateRow(code: String, cents: Int)</code></pre>
+      <ul>
+        <li>Map key → primary key. Field → column. <code>NOT NULL</code> → <code>Int</code>; nullable → <code>Option</code>.</li>
+        <li><code>query[RateRow]</code> maps by SELECT-list position, not column names.</li>
+      </ul>
+
+      <h2>Statements as values</h2>
+<pre><code>import org.typelevel.doobie.*
+import org.typelevel.doobie.implicits.*
+
+sql"select code, cents from rate where code = $code".query[RateRow]
+sql"insert into rate (code, cents) values (${row.code}, ${row.cents})".update
+
+findRate("EUR").sql   // … where code = ?
+insertRate(row).sql   // … values (?, ?)</code></pre>
+      <ul>
+        <li><code>$code</code> is a bind parameter. Do not write <code>'$code'</code> (that becomes <code>'?'</code>).</li>
+        <li><code>s"…$code"</code> concatenates and is how injection is written.</li>
+        <li><code>.option</code> / <code>.unique</code> / <code>.run</code> yield <code>ConnectionIO</code> — still not a session.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Keep <code>rateOf</code> as the pure <code>Map</code> lookup this unit.</li>
+        <li>Assert on <code>Query0.sql</code> / <code>Update0.sql</code> without a database.</li>
+        <li>Name SELECT columns in case-class field order.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Call <code>transact</code> or construct a <code>Transactor</code>.</li>
+        <li>Add <code>doobie-postgres</code>, Hikari, H2, or a JDBC URL.</li>
+        <li>Use <code>Fragments.in</code>, YOLO <code>.check</code>, generated keys, or batch <code>Update</code>.</li>
+        <li>Replace <code>rateOf</code> with SQL inside the HTTP routes.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="http-integration.html">HTTP integration testing</a>,
+          <a href="service-architecture.html">Service architecture, config and logs</a>,
+          <a href="io.html">IO</a>,
+          <a href="functional-core.html">Functional core</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>
