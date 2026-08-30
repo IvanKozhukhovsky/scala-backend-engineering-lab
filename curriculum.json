@@ -683,10 +683,23 @@
           "id": "scala-020",
           "sequence": 20,
           "title": "HTTP integration testing",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0016-http-integration-testing.html"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day20/ExercisesDay20.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day20/ExercisesDay20Suite.test.scala"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/22"
         }
       ]

@@ -109,9 +109,9 @@
 - [http4s documentation](https://http4s.org/v0.23/)
   Entry point for the HTTP library used from `scala-017` onward (0.23.x Cats Effect 3 line).
 - [http4s Quick Start](https://http4s.org/v0.23/docs/quickstart.html)
-  Install pin (`http4s-dsl` `0.23.36` in this repo) and Scala 3.3+ support. Ember client/server modules wait until a later unit needs a bound port.
+  Install pin (`http4s-dsl` / `http4s-ember-server` / `http4s-ember-client` `0.23.36` in this repo) and Scala 3.3+ support. Ember modules are in scope from `scala-020`.
 - [http4s: Service](https://http4s.org/v0.23/docs/service.html)
-  `HttpRoutes[F]` as `Request => F[Response]`. Stop before EmberServerBuilder / `Router` as skills — this unit runs requests in-process.
+  `HttpRoutes[F]` as `Request => F[Response]`. For `scala-017` stop before EmberServerBuilder / `Router` as skills — that unit runs requests in-process. For `scala-020` read *Running Your Service* (`EmberServerBuilder`, `withHttpApp`, `build`). Stop before `Router`, `<+>`, and `IO.never` as skills.
 - [http4s: The DSL](https://http4s.org/v0.23/docs/dsl.html)
   Primary narrative for this unit: `HttpRoutes.of`, `GET -> Root / …`, `Ok` / `NotFound` / `MethodNotAllowed`, testing with a constructed `Request` and `.orNotFound`. Stop before cookies, `Future` bodies, and streaming drip examples.
 - [http4s: JSON Handling](https://http4s.org/v0.23/docs/json.html)
@@ -142,6 +142,12 @@
   `StructuredTestingLogger` for asserting on message plus `ctx` map. This unit does not require `munit-cats-effect`.
 - [http4s: Server Middleware](https://http4s.org/v0.23/docs/server-middleware.html)
   Lists `Logger` / `RequestLogger` as string dumps of headers and bodies. Out of scope for `scala-019` — full bodies can be huge; structured `ctx` maps are the skill.
+- [http4s: HTTP Client](https://http4s.org/v0.23/docs/client.html)
+  Primary narrative for `scala-020`: `EmberClientBuilder.build` is a `Resource`, `expect` decodes 2xx, `Client.run` returns `Resource[F, Response[F]]`. Stop before JavaNetClientBuilder as a skill, client middleware, and metrics.
+- [http4s API: Client.fromHttpApp](https://http4s.org/v0.23/api/org/http4s/client/Client$.html)
+  In-process client from an `HttpApp`. Useful as a fake; it is not a socket integration test.
+- [http4s API: Server.baseUri](https://http4s.org/v0.23/api/org/http4s/server/Server.html)
+  Live base URI (scheme, host, bound port) after Ember acquires the socket. Tests bind `127.0.0.1` and `port"0"` so this URI is a destination and does not collide on 8080.
 
 ## Wisdom
 

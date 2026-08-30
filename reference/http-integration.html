@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTTP integration testing cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-020</p>
+      <h1>HTTP integration testing</h1>
+      <p class="lede">Bind loopback. Talk HTTP. Release the socket. Keep in-process tests for the contract.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0016-http-integration-testing.html">HTTP integration testing</a>.
+        Docs:
+        <a href="https://http4s.org/v0.23/docs/client.html">http4s Client</a>,
+        <a href="https://http4s.org/v0.23/docs/service.html">Service</a>.
+        This repo pins <code>http4s-ember-server</code> and
+        <code>http4s-ember-client</code> <code>0.23.36</code>.
+      </p>
+
+      <h2>Layers</h2>
+      <ul>
+        <li><code>HttpApp.run</code> — function call. Relative <code>uri"/health"</code>.</li>
+        <li><code>Client.fromHttpApp</code> — same layer, client-shaped. No socket.</li>
+        <li>Ember server + Ember client — TCP, HTTP/1.1, absolute <code>Server.baseUri</code>.</li>
+      </ul>
+
+      <h2>Harness</h2>
+<pre><code>EmberServerBuilder
+  .default[IO]
+  .withHost(ipv4"127.0.0.1")
+  .withPort(port"0")
+  .withHttpApp(app)
+  .build
+
+Resource
+  .both(serve(app), EmberClientBuilder.default[IO].build)
+  .use { case (server, client) =&gt;
+    run(server.baseUri, client)
+  }</code></pre>
+      <ul>
+        <li><code>port"0"</code> — OS picks a free port; read it from <code>baseUri</code>.</li>
+        <li>Bind loopback so <code>baseUri</code> is a destination, not <code>0.0.0.0</code>.</li>
+        <li>Inject config values. Do not load env inside the test.</li>
+      </ul>
+
+      <h2>Client</h2>
+<pre><code>client.expect[RateOut](base / "rates" / "EUR")     // 2xx or UnexpectedStatus
+client.statusFromUri(base / "rates" / "JPY")       // just the code
+client.run(req).use { res =&gt; res.as[ApiError] }    // 4xx body; finish inside use</code></pre>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Keep a fast in-process suite for 400/422/404/405 mapping.</li>
+        <li>Sample the contract over the wire: 200, one 4xx, <code>Date</code> present.</li>
+        <li>Keep <code>rateOf</code> / <code>convertAmount</code> pure.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Treat <code>Client.fromHttpApp</code> as an integration test.</li>
+        <li>Call <code>expect</code> when you need a 404/422 body.</li>
+        <li>Hard-code 8080 in tests, or send the client to <code>0.0.0.0</code>.</li>
+        <li>Introduce slf4j/logback, http4s <code>Logger</code> middleware,
+          <code>munit-cats-effect</code>, or a database in this unit.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="http-rest.html">HTTP and REST</a>,
+          <a href="json-codecs.html">JSON codecs and API errors</a>,
+          <a href="service-architecture.html">Service architecture, config and logs</a>,
+          <a href="resource-fiber.html">Resource and fibers</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

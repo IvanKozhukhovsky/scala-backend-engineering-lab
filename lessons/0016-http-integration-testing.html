@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTTP integration testing</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-020 · Phase 05 · Backend Engineering</p>
+      <h1>HTTP integration testing</h1>
+      <p class="lede">
+        You can bind Ember on loopback, send a real HTTP request with an Ember client,
+        and read status, headers, and body — then release the socket with
+        <code>Resource.use</code>, without hard-coding port 8080.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 19 already bought</a></li>
+          <li><a href="#layers">Function versus socket</a></li>
+          <li><a href="#ember">Ember is a Resource</a></li>
+          <li><a href="#expect">expect is for 2xx</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 15: <code>Resource.use</code> still runs release when the inner
+        <code>IO</code> fails.
+        Day 17: building <code>HttpRoutes</code> does not bind a port;
+        <code>app.run(Request(GET, uri"/health"))</code> is a function call.
+        Day 19: tests inject <code>QuoteConfig</code> values — they do not
+        own <code>sys.env</code>.
+        Before reading on: if two tests both bind <code>:8080</code>, what happens?
+        If the client uses <code>Server.baseUri</code> after you bound
+        <code>0.0.0.0</code>, where does it try to connect?
+      </section>
+
+      <h2 id="layers">Function versus socket</h2>
+      <p>
+        Days 17–19 already tested the HTTP <em>contract</em>: method, URI, status,
+        JSON. That is still the fast suite. It never speaks HTTP/1.1. There is no
+        TCP listen, no <code>Host</code> header, no wire <code>Date</code>.
+        <code>Client.fromHttpApp</code> is the same layer with a client-shaped
+        API.<a class="sidenote-ref" href="#sn-fromapp">1</a>
+      </p>
+      <aside class="sidenote" id="sn-fromapp">
+        http4s <code>Client.fromHttpApp</code>: “useful for generating
+        pre-determined responses in testing.” It does not open a socket.
+        Keep it for fakes. This unit’s skill is Ember over loopback.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>app.run(Request(GET, uri"/health"))
+Client.fromHttpApp(app)</code>
+    <span>Relative URI, no listen, no HTTP framing.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>client.expect[HealthOut](base / "health")
+// base comes from Server.baseUri</code>
+    <span>Absolute URI. Bytes go through a port.</span>
+  </div>
+  <figcaption>In-process checks the function. Integration checks the socket.</figcaption>
+</figure>
+      <p>
+        Ember is http4s’ native backend. Quick Start and Service start it with
+        <code>EmberServerBuilder</code>; the client page starts
+        <code>EmberClientBuilder</code>. Both <code>.build</code> to a
+        <code>Resource</code> — acquire, use, release, including on error or
+        cancel, same as Day 15.<a class="sidenote-ref" href="#sn-ember">2</a>
+      </p>
+      <aside class="sidenote" id="sn-ember">
+        http4s Client: <code>Client.run</code> itself returns
+        <code>Resource[F, Response[F]]</code> because the connection is finite.
+        Read the body <em>inside</em> <code>use</code>. This repo pins
+        <code>http4s-ember-server</code> and <code>http4s-ember-client</code>
+        <code>0.23.36</code>. slf4j / logback still wait; NOP log lines in tests
+        are expected.
+      </aside>
+
+      <h2 id="ember">Ember is a Resource</h2>
+      <p>
+        Bind <code>127.0.0.1</code>, not <code>0.0.0.0</code>.
+        <code>Server.baseUri</code> is what the client will call. A URI whose host
+        is <code>0.0.0.0</code> is a listen address, not a destination.
+        <code>port"0"</code> asks the OS for a free port so parallel tests do not
+        collide on 8080 — http4s’ own Ember suites do the same.
+        After bind, <code>baseUri</code> holds the real port.<a class="sidenote-ref" href="#sn-port">3</a>
+      </p>
+      <aside class="sidenote" id="sn-port">
+        http4s Service shows <code>withHost(ipv4"0.0.0.0")</code> and
+        <code>withPort(port"8080")</code> for a long-running app
+        (<code>.use(_ =&gt; IO.never)</code>). Tests are not that app: loopback
+        plus port 0, then exit.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>withHost(ipv4"0.0.0.0")
+withPort(port"8080")
+client.expect(server.baseUri / "health")</code>
+    <span><code>0.0.0.0</code> is not a place a client can connect. 8080 is a shared lock.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>withHost(ipv4"127.0.0.1")
+withPort(port"0")
+client.expect(server.baseUri / "health")</code>
+    <span>Loopback. The OS picks the port. <code>baseUri</code> has it.</span>
+  </div>
+  <figcaption>Listen address ≠ request address. Ephemeral port ≠ demo port.</figcaption>
+</figure>
+<pre><code>import com.comcast.ip4s.{ipv4, port}
+import org.http4s.ember.client.EmberClientBuilder
+import org.http4s.ember.server.EmberServerBuilder
+
+def serve(app: HttpApp[IO]): Resource[IO, Server] =
+  EmberServerBuilder
+    .default[IO]
+    .withHost(ipv4"127.0.0.1")
+    .withPort(port"0")
+    .withHttpApp(app)
+    .build
+
+def withLive[A](app: HttpApp[IO])(run: (Uri, Client[IO]) =&gt; IO[A]): IO[A] =
+  Resource
+    .both(serve(app), EmberClientBuilder.default[IO].build)
+    .use { case (server, client) =&gt;
+      run(server.baseUri, client)
+    }</code></pre>
+      <p>
+        Inject <code>DeskConfig("quotes", 1)</code> the way Day 19 injected
+        <code>QuoteConfig</code>. The live test still does not own env.
+        Keep <code>convertAmount</code> / <code>rateOf</code> pure.
+      </p>
+
+      <h2 id="expect">expect is for 2xx</h2>
+      <p>
+        <code>client.expect[A]</code> decodes a successful response. A 404 or 422
+        fails the <code>IO</code> with <code>UnexpectedStatus</code> — it does not
+        hand you <code>ApiError</code>. That is the opposite of
+        <code>HttpApp.run</code>, which always yields a <code>Response</code>.<a class="sidenote-ref" href="#sn-expect">4</a>
+      </p>
+      <aside class="sidenote" id="sn-expect">
+        http4s Client: <code>expect</code> decodes on success.
+        <code>status</code> / <code>statusFromUri</code> return the code.
+        <code>run(req).use</code> is the seam when you need status <em>and</em>
+        body (a 422 JSON error). Finish reading the body before <code>use</code>
+        exits.
+      </aside>
+<pre><code>withLive(app) { (base, client) =&gt;
+  client.expect[RateOut](base / "rates" / "EUR")
+}
+
+withLive(app) { (base, client) =&gt;
+  client.statusFromUri(base / "rates" / "JPY")  // 404
+}
+
+withLive(app) { (base, client) =&gt;
+  val req = Request[IO](POST, base / "convert").withEntity(ConvertIn("EUR", 0))
+  client.run(req).use { res =&gt;
+    res.as[ApiError].map(err =&gt; (res.status, err))
+  }
+}</code></pre>
+      <p>
+        A live GET through Ember typically carries a <code>Date</code> header.
+        <code>HttpApp.run</code> does not add one. That is a cheap check that the
+        request actually left the process.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read the http4s
+        <a href="https://http4s.org/v0.23/docs/client.html">HTTP Client</a>
+        through <em>Creating the client</em> and <em>Describing a Request</em>
+        (stop before JavaNetClientBuilder as a skill, client middleware, and
+        metrics).
+        Skim
+        <a href="https://http4s.org/v0.23/docs/service.html">Service</a>
+        <em>Running Your Service</em> for
+        <code>EmberServerBuilder</code> / <code>withHttpApp</code> / <code>build</code>
+        (stop before <code>Router</code>, <code>&lt;+&gt;</code>, and
+        <code>IO.never</code> as skills).
+        Quick Start’s Ember modules are the install pin already in this repo
+        (<code>0.23.36</code>).
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="HTTP integration testing retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">EmberServerBuilder.build returns:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">Resource of a Server</button>
+            <button type="button">IO that binds now</button>
+            <button type="button">Client without a socket</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok=".build is acquire/release. Listening starts when the Resource is used." data-bad="Building the Resource does not listen. fromHttpApp is the in-process client."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">client.expect on HTTP 404:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">fails the IO task</button>
+            <button type="button">returns the error JSON</button>
+            <button type="button">maps it to 200</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="UnexpectedStatus. Use statusFromUri or run.use when you need a 4xx body." data-bad="expect is the 2xx decoder. HttpApp.run always gave you a Response; the client does not."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">baseUri after bind 0.0.0.0:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">client cannot connect there</button>
+            <button type="button">curl always succeeds now</button>
+            <button type="button">Ember skips the socket</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="0.0.0.0 is a listen address. Tests bind 127.0.0.1 so baseUri is a destination." data-bad="The client would try to connect to 0.0.0.0. Loopback is the test host."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Client.fromHttpApp(app) does:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">still skips the socket</button>
+            <button type="button">starts Ember for you</button>
+            <button type="button">adds Date and Host</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Same layer as HttpApp.run, with a Client API. Ember is what adds the wire headers." data-bad="fromHttpApp is the documented in-process fake. Date on a live GET is a cheap Ember check."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day20.Day20Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>orderServe</code> and <code>withOrderLive</code> in
+        <a href="../src/main/scala/day20/ExercisesDay20.scala"><code>ExercisesDay20.scala</code></a>.
+        The spec is
+        <a href="../src/test/scala/day20/ExercisesDay20Suite.test.scala"><code>ExercisesDay20Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        Bind <code>127.0.0.1</code> and <code>port"0"</code>.
+        Pass <code>server.baseUri</code> into the client.
+        Do not use <code>Client.fromHttpApp</code>.
+        Use the existing <code>convertApp</code> — do not rewrite the catalog.
+        Then run
+        <code>scala-cli test . --test-only 'day20.ExercisesDay20Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why does expect fail on 404?”) over
+        “explain Ember again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0015-service-architecture-configuration-and-logging.html">Service architecture, configuration and structured logging</a>
+          · Cheat sheet:
+          <a href="../reference/http-integration.html">HTTP integration testing</a>
+          · Relational modeling is the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>
