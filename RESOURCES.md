@@ -149,11 +149,11 @@
 - [http4s API: Server.baseUri](https://http4s.org/v0.23/api/org/http4s/server/Server.html)
   Live base URI (scheme, host, bound port) after Ember acquires the socket. Tests bind `127.0.0.1` and `port"0"` so this URI is a destination and does not collide on 8080.
 - [doobie](https://typelevel.org/doobie/)
-  Entry point for the functional JDBC layer used from `scala-021`. Homepage pin at teach time: `org.typelevel` `doobie-core` `1.0.0-RC13` (Scala 3, Cats Effect 3). Package is `org.typelevel.doobie` — not `org.tpolecat` / `doobie.`. Not an ORM: you write SQL.
+  Entry point for the functional JDBC layer used from `scala-021`. Homepage pin at teach time: `org.typelevel` `doobie-core` `1.0.0-RC13` (Scala 3, Cats Effect 3). Package is `org.typelevel.doobie` — not `org.tpolecat` / `doobie.`. Not an ORM: you write SQL. From `scala-022` also pin `doobie-postgres`, `doobie-hikari`, and `doobie-h2` at the same version (Postgres driver `42.7.10`, H2 `2.4.240`).
 - [doobie: Introduction](https://typelevel.org/doobie/docs/01-Introduction.html)
   Book framing and the same version pin. Skip the local `world` database setup until a later unit opens PostgreSQL.
 - [doobie: Connecting](https://typelevel.org/doobie/docs/03-Connecting.html)
-  `ConnectionIO[A]` as a program that needs a `Connection` later; `sql` interpolator; `transact` as the edge. For `scala-021` stop before `Transactor.fromDriverManager` as a skill.
+  `ConnectionIO[A]` as a program that needs a `Connection` later; `sql` interpolator; `transact` as the edge. For `scala-021` stop before `Transactor.fromDriverManager` as a skill. For `scala-022` read through a `for` comprehension plus `transact` (one transaction, commit/rollback, close). Stop before Kleisli interpreters.
 - [doobie: Selecting Data](https://typelevel.org/doobie/docs/04-Selecting.html)
   `Query0`, `.query[A]`, `.option` / `.unique` / `.to[List]`, mapping rows to a case class by column position. Stop before HList, shapeless records, YOLO, and `Stream` as skills.
 - [doobie: Parameterized Queries](https://typelevel.org/doobie/docs/05-Parameterized.html)
@@ -162,6 +162,12 @@
   `.update` / `Update0` for INSERT. For `scala-021` read through *Inserting*; stop before generated keys, `lastval`, and batch `Update`.
 - [doobie API: Query0](https://github.com/typelevel/doobie/blob/v1.0.0-RC13/modules/core/src/main/scala/doobie/util/query.scala)
   Authoritative `sql: String` diagnostic on the query value — enough to test statements without a live database.
+- [doobie: Managing Connections](https://typelevel.org/doobie/docs/14-Managing-Connections.html)
+  Primary narrative for `scala-022`: `HikariTransactor.fromHikariConfig` is a `Resource`; DriverManager is fine for tests. Stop before `DataSourceTransactor`, `fromConnection`, and custom `Strategy`.
+- [doobie: Extensions for PostgreSQL](https://typelevel.org/doobie/docs/15-Extensions-PostgreSQL.html)
+  `doobie-postgres` `1.0.0-RC13` pulls in PostgreSQL JDBC Driver `42.7.10`. Driver class `org.postgresql.Driver`. Stop before arrays, enums, PostGIS, `LISTEN`, and `COPY`.
+- [doobie: Extensions for H2](https://typelevel.org/doobie/docs/16-Extensions-H2.html)
+  `doobie-h2` `1.0.0-RC13` pulls in H2 `2.4.240` so tests can `transact` without Docker. Stop before `H2Transactor.newH2Transactor` as a skill — this unit uses DriverManager plus `DB_CLOSE_DELAY=-1`.
 
 ## Wisdom
 
@@ -173,5 +179,5 @@
 ## Gaps
 
 - Migration tooling will be selected at `scala-023` from current primary documentation rather than pinned prematurely.
-- PostgreSQL driver, pooling (`doobie-postgres` / Hikari), and a live `Transactor` wait until `scala-022`.
+- A live PostgreSQL server and database integration-test harness wait until `scala-024`. This unit transacts against in-process H2 and records the Hikari + `org.postgresql.Driver` production shape without opening Postgres.
 - Deployment platform will be selected only when the capstone reaches production-readiness work.

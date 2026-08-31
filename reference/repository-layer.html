@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PostgreSQL repository layer cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-022</p>
+      <h1>PostgreSQL repository layer</h1>
+      <p class="lede">Transact at the rim. Inject the Transactor. Hikari is a Resource. Tests use H2.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0018-postgresql-repository-layer.html">PostgreSQL repository layer</a>.
+        Docs:
+        <a href="https://typelevel.org/doobie/docs/03-Connecting.html">Connecting</a>,
+        <a href="https://typelevel.org/doobie/docs/14-Managing-Connections.html">Managing Connections</a>.
+        This repo pins <code>org.typelevel</code>
+        <code>doobie-core</code> / <code>doobie-postgres</code> /
+        <code>doobie-hikari</code> / <code>doobie-h2</code>
+        <code>1.0.0-RC13</code>. Package:
+        <code>org.typelevel.doobie</code>.
+      </p>
+
+      <h2>Session</h2>
+<pre><code>findRate(code).option              // ConnectionIO — no JDBC yet
+findRate(code).option.transact(xa) // IO — one transaction, then close</code></pre>
+      <ul>
+        <li>Compose with <code>for</code> before <code>transact</code> to share one session.</li>
+        <li>Two <code>transact</code> calls are two sessions.</li>
+      </ul>
+
+      <h2>Repository</h2>
+<pre><code>final class RateRepository(xa: Transactor[IO]):
+  def find(code: String): IO[Option[RateRow]] =
+    findRate(code).option.transact(xa)</code></pre>
+      <ul>
+        <li>Inject <code>xa</code> like <code>DeskConfig</code>. Do not hide it inside <code>rateOf</code>.</li>
+        <li><code>.option</code> for zero-or-one. <code>.unique</code> fails if the row is missing.</li>
+      </ul>
+
+      <h2>Production versus tests</h2>
+<pre><code>postgresHikariConfig(url, user, password)  // fields only; no connect
+HikariTransactor.fromHikariConfig[IO](cfg) // Resource of a pool
+
+Transactor.fromDriverManager[IO](
+  driver = "org.h2.Driver",
+  url = s"jdbc:h2:mem:$name;DB_CLOSE_DELAY=-1",
+  user = "sa",
+  password = "",
+  logHandler = None
+)</code></pre>
+      <ul>
+        <li>Postgres driver class: <code>org.postgresql.Driver</code>. URL is an injected value.</li>
+        <li>Without <code>DB_CLOSE_DELAY=-1</code>, H2 mem dies when <code>transact</code> closes.</li>
+        <li>Unique mem <code>name</code> per test.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Keep <code>rateOf</code> as the pure <code>Map</code> lookup this unit.</li>
+        <li>Transact Day 21’s <code>Query0</code> / <code>Update0</code> — do not concatenate.</li>
+        <li>Assert production config without calling <code>postgresPool.use</code>.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Put <code>transact</code> or a JDBC URL inside <code>rateOf</code> / <code>convertAmount</code>.</li>
+        <li>Use DriverManager against Postgres as the production pool.</li>
+        <li>Call <code>postgresPool.use</code> without a live Postgres (that is a later unit).</li>
+        <li>Introduce Flyway, Testcontainers, <code>H2Transactor</code>,
+          <code>pgtypes</code>, <code>LISTEN</code>, or custom <code>Strategy</code>.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="sql-doobie.html">Relational SQL with doobie</a>,
+          <a href="http-integration.html">HTTP integration testing</a>,
+          <a href="service-architecture.html">Service architecture, config and logs</a>,
+          <a href="io.html">IO</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

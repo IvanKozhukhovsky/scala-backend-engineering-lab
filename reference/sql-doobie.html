@@ -50,7 +50,7 @@ insertRate(row).sql   // … values (?, ?)</code></pre>
       <ul>
         <li><code>$code</code> is a bind parameter. Do not write <code>'$code'</code> (that becomes <code>'?'</code>).</li>
         <li><code>s"…$code"</code> concatenates and is how injection is written.</li>
-        <li><code>.option</code> / <code>.unique</code> / <code>.run</code> yield <code>ConnectionIO</code> — still not a session.</li>
+        <li><code>.option</code> / <code>.unique</code> / <code>.run</code> yield <code>ConnectionIO</code> — still not a session. <code>transact</code> is the repository unit.</li>
       </ul>
 
       <h2>Do</h2>
@@ -60,16 +60,16 @@ insertRate(row).sql   // … values (?, ?)</code></pre>
         <li>Name SELECT columns in case-class field order.</li>
       </ul>
 
-      <h2>Do not</h2>
+      <h2>Do not (this unit)</h2>
       <ul>
-        <li>Call <code>transact</code> or construct a <code>Transactor</code>.</li>
-        <li>Add <code>doobie-postgres</code>, Hikari, H2, or a JDBC URL.</li>
         <li>Use <code>Fragments.in</code>, YOLO <code>.check</code>, generated keys, or batch <code>Update</code>.</li>
         <li>Replace <code>rateOf</code> with SQL inside the HTTP routes.</li>
       </ul>
 
       <footer class="meta">
         <p>
+          Next:
+          <a href="repository-layer.html">PostgreSQL repository layer</a>.
           Prior units:
           <a href="http-integration.html">HTTP integration testing</a>,
           <a href="service-architecture.html">Service architecture, config and logs</a>,

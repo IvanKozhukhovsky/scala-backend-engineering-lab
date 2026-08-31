@@ -740,10 +740,27 @@
           "id": "scala-022",
           "sequence": 22,
           "title": "PostgreSQL repository layer",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0018-postgresql-repository-layer.html"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day22/ExercisesDay22.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day22/ExercisesDay22Suite.test.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0017-h2-mem-dies-with-the-connection.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/24"
         },
         {

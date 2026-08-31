@@ -21,8 +21,12 @@
 //> using dep "org.typelevel::log4cats-core::2.7.1"
 // doobie: functional JDBC. Homepage pin at scala-021 teach time: 1.0.0-RC13,
 // org.typelevel (not org.tpolecat), package org.typelevel.doobie.
-// Core only this unit — no Transactor, postgres driver, Hikari, or H2.
+// scala-022: postgres driver 42.7.10 + type mappings; HikariCP transactor;
+// H2 driver 2.4.240 for in-process tests / the worked main (no Docker).
 //> using dep "org.typelevel::doobie-core::1.0.0-RC13"
+//> using dep "org.typelevel::doobie-postgres::1.0.0-RC13"
+//> using dep "org.typelevel::doobie-hikari::1.0.0-RC13"
+//> using dep "org.typelevel::doobie-h2::1.0.0-RC13"
 //> using test.dep "org.typelevel::log4cats-testing::2.7.1"
 //> using test.dep "org.scalameta::munit::1.0.4"
 // munit-scalacheck has no 1.0.4; 1.0.0 is the 1.0 line. ScalaCheck 1.18.0 is transitive.

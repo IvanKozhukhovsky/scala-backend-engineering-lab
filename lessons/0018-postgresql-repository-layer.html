@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PostgreSQL repository layer</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-022 · Phase 06 · Persistence</p>
+      <h1>PostgreSQL repository layer</h1>
+      <p class="lede">
+        You can inject a <code>Transactor</code>, run Day 21’s
+        <code>ConnectionIO</code> with <code>transact</code>, and keep
+        <code>rateOf</code> a pure <code>Map</code> — production shape is
+        Hikari plus the Postgres driver; tests use in-process H2.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 21 already bought</a></li>
+          <li><a href="#transact">transact is the session</a></li>
+          <li><a href="#repo">The repository holds the Transactor</a></li>
+          <li><a href="#pool">Hikari for Postgres, DriverManager for tests</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 11: the core returns a value; the shell does I/O.
+        Day 14: <code>IO { }</code> does not run at construction.
+        Day 20: <code>EmberServerBuilder.build</code> is a
+        <code>Resource</code> — listening starts on <code>use</code>.
+        Day 21: <code>findRate("EUR").option</code> is
+        <code>ConnectionIO</code>. <code>rateOf</code> is still
+        <code>Map.get</code>.
+        Before reading on: when does Postgres (or any JDBC engine) first
+        see <code>EUR</code>? If you <code>transact</code> an
+        <code>INSERT</code> and then <code>transact</code> a
+        <code>SELECT</code> against H2 <code>mem</code> without
+        <code>DB_CLOSE_DELAY=-1</code>, what happens to the table?
+      </section>
+
+      <h2 id="transact">transact is the session</h2>
+      <p>
+        Connecting: a <code>Transactor</code> knows how to get a
+        <code>java.sql.Connection</code>, run the program, and clean up.
+        <code>program.transact(xa)</code> is
+        <code>ConnectionIO ~> IO</code>. The resulting
+        <code>IO</code> “will connect to the database and execute single
+        transaction.” Commit / rollback and closing the connection happen
+        there — constructing <code>ConnectionIO</code> still does
+        nothing.<a class="sidenote-ref" href="#sn-tx">1</a>
+      </p>
+      <aside class="sidenote" id="sn-tx">
+        Connecting: DriverManager is “fine for development but inefficient
+        for production.” Same chapter: <code>transact</code> adds
+        commit/rollback and always closes the connection. Kleisli
+        interpreters wait.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>findRate("EUR").option
+// type: ConnectionIO[Option[RateRow]]</code>
+    <span>A description. No socket. No row.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>findRate("EUR").option.transact(xa)
+// type: IO[Option[RateRow]]</code>
+    <span>The session. JDBC runs when this <code>IO</code> does.</span>
+  </div>
+  <figcaption>Same split as HttpRoutes versus Ember: construct now, run at the edge.</figcaption>
+</figure>
+      <p>
+        Compose with a <code>for</code> comprehension <em>before</em>
+        <code>transact</code> if the statements should share one
+        transaction — Connecting does this with two
+        <code>select</code>s. Two separate <code>transact</code> calls
+        are two sessions. Isolation and migrations wait until the next
+        unit.
+      </p>
+
+      <h2 id="repo">The repository holds the Transactor</h2>
+      <p>
+        Pass the <code>Transactor</code> in, the way Day 19 passed
+        <code>DeskConfig</code>. The repository transacts Day 21’s
+        <code>Query0</code> / <code>Update0</code>. It does not become
+        the catalog. <code>rateOf</code> stays <code>Map.get</code>.
+        HTTP routes are not rewritten this unit.<a class="sidenote-ref" href="#sn-rim">2</a>
+      </p>
+      <aside class="sidenote" id="sn-rim">
+        If <code>convertAmount</code> called <code>transact</code>, the
+        unit test of <code>qty &lt; minQty</code> would own a database.
+        JDBC is the shell. The core still sees
+        <code>Option[Int]</code>.
+      </aside>
+<pre><code>final class RateRepository(xa: Transactor[IO]):
+  def find(code: String): IO[Option[RateRow]] =
+    findRate(code).option.transact(xa)
+
+  def insert(row: RateRow): IO[Int] =
+    insertRate(row).run.transact(xa)</code></pre>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>def rateOf(code: String) =
+  findRate(code).option
+    .transact(xa)
+    .unsafeRunSync()
+    .map(_.cents)</code>
+    <span>The core now owns JDBC, a Transactor, and the test runtime.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>def rateOf(code: String)
+  : Option[Int] =
+  rates.get(code)
+
+repo.find("EUR")  // IO, rim</code>
+    <span>Map lookup stays pure. The repository is the session.</span>
+  </div>
+  <figcaption>Inject the Transactor. Do not hide it inside rateOf.</figcaption>
+</figure>
+
+      <h2 id="pool">Hikari for Postgres, DriverManager for tests</h2>
+      <p>
+        The homepage add-ons for this unit:
+        <code>doobie-postgres</code> (driver
+        <code>42.7.10</code> + type mappings),
+        <code>doobie-hikari</code> (HikariCP transactor),
+        <code>doobie-h2</code> (H2 driver
+        <code>2.4.240</code> for tests). Package stays
+        <code>org.typelevel.doobie</code>.
+        Postgres-specific types, <code>LISTEN</code>, and
+        <code>COPY</code> wait.<a class="sidenote-ref" href="#sn-pg">3</a>
+      </p>
+      <aside class="sidenote" id="sn-pg">
+        Extensions for PostgreSQL: the module “pulls in PostgreSQL JDBC
+        Driver as a transitive dependency.” Driver class
+        <code>org.postgresql.Driver</code> is what Connecting uses.
+        Do not call <code>postgresPool.use</code> in this repo’s tests —
+        there is no local <code>world</code> database yet.
+      </aside>
+      <p>
+        Managing Connections: a pool is a lifetime-managed object, so
+        <code>HikariTransactor.fromHikariConfig</code> is a
+        <code>Resource</code>. <code>Resource.use</code> starts the pool
+        (and typically opens a connection). Setting fields on
+        <code>HikariConfig</code> does not.
+        DriverManager has no pool to shut down — Connecting and the
+        same chapter call it fine for tests. That is
+        <code>h2Xa</code>.<a class="sidenote-ref" href="#sn-h2">4</a>
+      </p>
+      <aside class="sidenote" id="sn-h2">
+        Hikari’s own example URL is
+        <code>jdbc:h2:mem:test;DB_CLOSE_DELAY=-1</code>.
+        Without the delay, H2 drops a mem database when the last
+        connection closes — and <code>transact</code> always closes.
+        Give each test a unique mem name so catalogs do not collide.
+        <code>H2Transactor.newH2Transactor</code> waits; we do not need
+        H2’s pool.
+      </aside>
+<pre><code>def postgresHikariConfig(
+  url: String, user: String, password: String
+): HikariConfig =
+  val config = new HikariConfig()
+  config.setDriverClassName("org.postgresql.Driver")
+  config.setJdbcUrl(url)
+  config.setUsername(user)
+  config.setPassword(password)
+  config
+
+def postgresPool(url: String, user: String, password: String) =
+  HikariTransactor.fromHikariConfig[IO](
+    postgresHikariConfig(url, user, password)
+  )
+
+def h2Xa(name: String): Transactor[IO] =
+  Transactor.fromDriverManager[IO](
+    driver = "org.h2.Driver",
+    url = s"jdbc:h2:mem:$name;DB_CLOSE_DELAY=-1",
+    user = "sa",
+    password = "",
+    logHandler = None
+  )</code></pre>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>Transactor.fromDriverManager[IO](
+  driver = "org.postgresql.Driver",
+  url = "jdbc:postgresql:world",
+  …
+)
+// in every test, and in production</code>
+    <span>Connecting: no upper bound on connections. Tests would need a live Postgres.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>postgresPool(...)        // Resource, production
+h2Xa("day22-find")       // DriverManager, tests</code>
+    <span>Same repository. Different Transactor. JDBC URL is an injected value.</span>
+  </div>
+  <figcaption>Pool is a Resource. Test sessions are not a production pool.</figcaption>
+</figure>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read doobie
+        <a href="https://typelevel.org/doobie/docs/03-Connecting.html">Connecting</a>
+        through running <code>transact</code> on a
+        <code>for</code> comprehension
+        (stop before <em>Diving Deeper</em> / Kleisli interpreters).
+        Read
+        <a href="https://typelevel.org/doobie/docs/14-Managing-Connections.html">Managing Connections</a>
+        through <em>Using the JDBC DriverManager</em>
+        (stop before <code>DataSourceTransactor</code>,
+        <code>fromConnection</code>, and custom
+        <code>Strategy</code>).
+        Skim the
+        <a href="https://typelevel.org/doobie/">homepage</a>
+        add-ons for <code>doobie-postgres</code>,
+        <code>doobie-hikari</code>, and <code>doobie-h2</code>
+        (all <code>1.0.0-RC13</code>).
+        Skim
+        <a href="https://typelevel.org/doobie/docs/15-Extensions-PostgreSQL.html">Extensions for PostgreSQL</a>
+        only for the driver pin
+        (stop before arrays, enums, PostGIS, <code>LISTEN</code>,
+        <code>COPY</code>).
+        Skim
+        <a href="https://typelevel.org/doobie/docs/16-Extensions-H2.html">Extensions for H2</a>
+        for why <code>doobie-h2</code> is on the classpath
+        (stop before <code>H2Transactor.newH2Transactor</code> as a skill).
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="PostgreSQL repository layer retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">program.transact(xa) produces:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">IO that uses JDBC</button>
+            <button type="button">printed SQL with placeholders</button>
+            <button type="button">ConnectionIO still not run</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Connecting: one transaction, then commit/rollback and close. Query0.sql is still the no-session diagnostic." data-bad="transact is the edge that needs a Connection. Constructing option/unique/run does not connect."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">HikariTransactor.fromHikariConfig is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">Resource of a pool</button>
+            <button type="button">bare DriverManager for Postgres</button>
+            <button type="button">Query0 with no session</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Managing Connections: the pool must be shut down. Resource.use starts it. HikariConfig fields do not connect." data-bad="DriverManager has no pool. Query0 is still Day 21. fromHikariConfig is a Resource."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">H2 mem without DB_CLOSE_DELAY=-1:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">table dies with connection</button>
+            <button type="button">rows survive every transact</button>
+            <button type="button">Postgres starts on loopback</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="transact always closes the connection. H2 mem dies with the last one unless you set the delay. Unique names keep tests apart." data-bad="This is not Postgres. Without the delay, the second transact does not see the INSERT."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">RateRepository.find versus rateOf:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">transact versus Map lookup</button>
+            <button type="button">both skip the database</button>
+            <button type="button">both need a HikariConfig</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="The repository is the JDBC rim. rateOf stays a pure Map. Tests inject a Transactor, not sys.env." data-bad="rateOf does not transact. HikariConfig is the production pool shape, not the Map catalog."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day22.Day22Suite'</code></pre>
+      <p>
+        Optionally run the main — it seeds H2 and prints
+        <code>Some(RateRow(EUR,108))</code>, not a JDBC URL:
+      </p>
+<pre><code>scala-cli run . --main-class day22.Day22</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>fillH2Xa</code> and <code>FillRepository</code> in
+        <a href="../src/main/scala/day22/ExercisesDay22.scala"><code>ExercisesDay22.scala</code></a>.
+        The spec is
+        <a href="../src/test/scala/day22/ExercisesDay22Suite.test.scala"><code>ExercisesDay22Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        Use <code>org.h2.Driver</code> and
+        <code>jdbc:h2:mem:$name;DB_CLOSE_DELAY=-1</code>.
+        Transact <code>findFill(...).option</code> and
+        <code>insertFill(...).run</code> — those SQL values already exist.
+        Do not call <code>postgresPool</code>, do not put JDBC in
+        <code>rateOf</code>, do not use <code>.unique</code> for a
+        lookup that may miss, do not start Flyway.
+        Then run
+        <code>scala-cli test . --test-only 'day22.ExercisesDay22Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why does the second transact miss the
+        row?”) over “explain JDBC again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0017-relational-modeling-and-sql-from-scala.html">Relational modeling and SQL from Scala</a>
+          · Cheat sheet:
+          <a href="../reference/repository-layer.html">PostgreSQL repository layer</a>
+          · Schema migrations are the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>
