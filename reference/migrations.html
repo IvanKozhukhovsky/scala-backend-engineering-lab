@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Schema migrations and transactions cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-023</p>
+      <h1>Schema migrations and transactions</h1>
+      <p class="lede">Flyway first. Compose ConnectionIO. One transact is one rollback.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0019-schema-migrations-and-transactional-boundaries.html">Schema migrations and transactional boundaries</a>.
+        Docs:
+        <a href="https://documentation.red-gate.com/flyway/reference/usage/api-java">Flyway Java API</a>,
+        <a href="https://documentation.red-gate.com/flyway/getting-started-with-flyway/quickstart-guides/quickstart-api">Quickstart - API</a>,
+        <a href="https://typelevel.org/doobie/docs/17-FAQ.html">doobie FAQ</a>.
+        This repo pins OSS <code>org.flywaydb:flyway-core:13.4.0</code> and
+        <code>flyway-database-postgresql:13.4.0</code>.
+        SQL lives at <code>src/main/resources/db/migration</code>
+        (<code>classpath:db/migration</code>).
+      </p>
+
+      <h2>Flyway</h2>
+<pre><code>Flyway.configure()
+  .dataSource(url, user, password)
+  .locations("classpath:db/migration")
+  .load()          // not yet
+  .migrate()       // applies pending V1, V2, … then records flyway_schema_history</code></pre>
+      <ul>
+        <li>Wrap <code>migrate</code> in <code>IO { }</code>. Construction does not JDBC.</li>
+        <li>Call it before repositories. A second call on the same catalog is a no-op.</li>
+        <li>Files: <code>V1__Create_rate_table.sql</code> (prefix <code>V</code>, separator <code>__</code>).</li>
+      </ul>
+
+      <h2>Transaction boundary</h2>
+<pre><code>def bookRates(a: RateRow, b: RateRow): ConnectionIO[Unit] =
+  for
+    _ <- insertRate(a).run
+    _ <- insertRate(b).run
+  yield ()
+
+bookRates(eur, gbp).transact(xa)     // both commit, or neither
+insertRate(eur).run.transact(xa)     // committed
+insertRate(eur).run.transact(xa)     // fails; EUR remains</code></pre>
+      <ul>
+        <li>FAQ: expose <code>ConnectionIO</code> so callers place one <code>transact</code>.</li>
+        <li>A single-row <code>find</code> may transact inside the repository.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Share the JDBC URL between Flyway and the Transactor (H2: unique mem name, <code>DB_CLOSE_DELAY=-1</code>).</li>
+        <li>Keep <code>rateOf</code> as the pure <code>Map</code> lookup this unit.</li>
+        <li>Keep production <code>postgresFlyway(...).load()</code> unmigrated until a live Postgres exists.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li><code>CREATE TABLE</code> in Scala now that versioned SQL exists.</li>
+        <li>Transact each write when the pair must share a rollback.</li>
+        <li>Put Flyway or JDBC inside <code>rateOf</code> / <code>convertAmount</code>.</li>
+        <li>Introduce Testcontainers, Flyway <code>clean</code>, undo, Java migrations, or custom <code>Strategy</code>.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="repository-layer.html">PostgreSQL repository layer</a>,
+          <a href="sql-doobie.html">Relational SQL with doobie</a>,
+          <a href="io.html">IO</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

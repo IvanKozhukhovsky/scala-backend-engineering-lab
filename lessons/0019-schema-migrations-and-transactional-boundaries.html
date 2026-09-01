@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Schema migrations and transactional boundaries</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-023 · Phase 06 · Persistence</p>
+      <h1>Schema migrations and transactional boundaries</h1>
+      <p class="lede">
+        You can apply versioned SQL with Flyway before the rest of the app
+        starts, and compose <code>ConnectionIO</code> so two writes share one
+        <code>transact</code> — a failed second insert does not leave the first row.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 22 already bought</a></li>
+          <li><a href="#flyway">Flyway owns the schema</a></li>
+          <li><a href="#tx">One program is one transaction</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 21: constructing <code>rateDdl</code> does not create a table.
+        Day 22: <code>program.transact(xa)</code> is one transaction, then
+        commit/rollback and close. Two <code>transact</code> calls are two
+        sessions. <code>seedRates</code> still ran <code>CREATE TABLE</code>
+        in Scala.
+        Before reading on: if every environment needs the same
+        <code>rate</code> table, who should own that DDL — a test helper, or
+        a versioned file in git? If you
+        <code>insertRate(eur).run.transact(xa)</code> and then a second
+        <code>transact</code> hits the primary key, is <code>EUR</code> still
+        there?
+      </section>
+
+      <h2 id="flyway">Flyway owns the schema</h2>
+      <p>
+        The Java API: integrate Flyway so “the application and its database
+        will always be compatible.” It checks the schema version and applies
+        pending migrations <em>before the rest of the application starts</em>.
+        <code>configure</code> / <code>dataSource</code> / <code>load</code>
+        build an immutable <code>Flyway</code>. <code>migrate()</code> is
+        the work.<a class="sidenote-ref" href="#sn-api">1</a>
+      </p>
+      <aside class="sidenote" id="sn-api">
+        Java API, 26 Aug 2026: OSS pin
+        <code>org.flywaydb:flyway-core:13.4.0</code> (Java 17+; this repo is
+        JVM 21). <code>migrate</code> is idempotent — a second call on the
+        same catalog applies nothing. Postgres support is the separate
+        <code>flyway-database-postgresql</code> module; do not call
+        <code>migrate</code> against a live Postgres in this unit.
+      </aside>
+      <p>
+        Versioned SQL names are
+        prefix VERSION separator DESCRIPTION suffix. Defaults make
+        <code>V1__Create_rate_table.sql</code>. The API default location is
+        <code>classpath:db/migration</code>. This repo puts those files under
+        <code>src/main/resources/db/migration</code> and adds
+        <code>//&gt; using resourceDir "./src/main/resources"</code>
+        so the classpath actually contains them.<a class="sidenote-ref" href="#sn-sql">2</a>
+      </p>
+      <aside class="sidenote" id="sn-sql">
+        Quickstart-API: create
+        <code>src/main/resources/db/migration</code>, then
+        <code>V1__Create_person_table.sql</code>, then a second file
+        <code>V2__…</code>. Re-running the program applies only what is
+        still pending. Flyway also creates
+        <code>flyway_schema_history</code>. Repeatable
+        <code>R__</code> scripts, undo, Java migrations, and
+        <code>clean</code> wait.
+      </aside>
+<pre><code>def migrateQuotes(url: String): IO[Int] =
+  IO {
+    Flyway.configure()
+      .dataSource(url, "sa", "")
+      .locations("classpath:db/migration")
+      .load()
+      .migrate()
+      .migrationsExecuted
+  }</code></pre>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>sql"CREATE TABLE rate …"
+  .update.run.transact(xa)
+// in every test, and in main</code>
+    <span>The schema is a local helper. Another environment never sees it.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>migrateQuotes(url)  // IO
+// then seedRates.transact(xa)</code>
+    <span>Same files, same order, every catalog. <code>IO { }</code> still does not run at construction.</span>
+  </div>
+  <figcaption>DDL is versioned SQL. DML stays ConnectionIO. Flyway first, then the repository.</figcaption>
+</figure>
+
+      <h2 id="tx">One program is one transaction</h2>
+      <p>
+        Connecting: <code>transact</code> “will connect to the database and
+        execute single transaction” and adds commit/rollback. A
+        <code>for</code> comprehension <em>before</em> that call is one
+        program — one transaction. The FAQ is blunt: compose
+        <code>ConnectionIO</code>, then <code>.transact(xa)</code> once.
+        “It’s useful for your APIs to expose values in
+        <code>ConnectionIO</code>, so higher-level code can place
+        transaction boundaries as needed.”<a class="sidenote-ref" href="#sn-faq">3</a>
+      </p>
+      <aside class="sidenote" id="sn-faq">
+        Two separate <code>transact</code> calls already committed the first
+        write. A failed second insert cannot un-commit it. Custom
+        <code>Strategy</code>, <code>withoutTransaction</code>, and
+        Testcontainers wait. <code>rateOf</code> stays
+        <code>Map.get</code>.
+      </aside>
+<pre><code>def bookRates(first: RateRow, second: RateRow): ConnectionIO[Unit] =
+  for
+    _ <- insertRate(first).run
+    _ <- insertRate(second).run
+  yield ()
+
+bookRates(eur, gbp).transact(xa)           // both commit, or neither
+insertRate(eur).run.transact(xa)          // session 1, committed
+insertRate(eur).run.transact(xa)          // session 2 fails; EUR remains</code></pre>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>repo.insert(eur) *&gt; repo.insert(eur)
+// each method already transacted</code>
+    <span>Two sessions. The first <code>EUR</code> row survives the duplicate.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>bookRates(eur, eur).transact(xa)
+// one ConnectionIO, one transact</code>
+    <span>The second insert hits the primary key. The first row is rolled back.</span>
+  </div>
+  <figcaption>A single-row find may transact inside the repository. A pair of writes must not.</figcaption>
+</figure>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read Flyway
+        <a href="https://documentation.red-gate.com/flyway/reference/usage/api-java">API (Java)</a>
+        through programmatic <code>configure().dataSource(url, user, password).load()</code>
+        and <code>migrate()</code>
+        (stop before Spring XML).
+        Read
+        <a href="https://documentation.red-gate.com/flyway/getting-started-with-flyway/quickstart-guides/quickstart-api">Quickstart - API</a>
+        through the second migration and the re-run that applies only V2
+        (skip the Maven archetype).
+        Read
+        <a href="https://documentation.red-gate.com/flyway/flyway-concepts/migrations">Migrations</a>
+        through <em>Migrate</em> (startup, idempotent) and
+        <em>Schema history</em>
+        (stop before Undo, Callbacks, repeatable migrations, placeholders,
+        and <code>clean</code> as skills).
+        Skim
+        <a href="https://documentation.red-gate.com/flyway/reference/configuration/flyway-namespace/flyway-locations-setting">Locations</a>
+        for the API default <code>classpath:db/migration</code>.
+        Re-read doobie
+        <a href="https://typelevel.org/doobie/docs/03-Connecting.html">Connecting</a>
+        at “What if we want to do more than one thing in a transaction?”
+        Read the FAQ
+        <a href="https://typelevel.org/doobie/docs/17-FAQ.html">How do I do several things in the same transaction?</a>
+        (stop before <code>withoutTransaction</code> as a skill).
+        Skim
+        <a href="https://documentation.red-gate.com/flyway/reference/database-driver-reference/postgresql-database">PostgreSQL Database</a>
+        only for the <code>flyway-database-postgresql</code> module
+        (do not migrate a live server this unit).
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Schema migrations and transactional boundaries retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Flyway.migrate should run:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">before the rest starts</button>
+            <button type="button">after the first query</button>
+            <button type="button">inside the Map lookup</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Java API: apply pending migrations before the rest of the application starts. configure/load do not migrate." data-bad="migrate is the work, and it belongs at startup — not inside rateOf, and not after the first SELECT."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">V1__Create_rate_table.sql is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">a versioned SQL migration</button>
+            <button type="button">a ConnectionIO JDBC session</button>
+            <button type="button">a HikariCP production pool</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Defaults: prefix V, separator __, suffix .sql, on classpath:db/migration. ConnectionIO is DML. Hikari is still Day 22." data-bad="The file is versioned SQL Flyway discovers. It is not a Transactor and not a ConnectionIO program."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Two inserts, one transact, second hits the PK:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">neither row is committed</button>
+            <button type="button">the first row remains</button>
+            <button type="button">Flyway undoes version one</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Connecting: one transact is one transaction with commit/rollback. Flyway already finished before these inserts." data-bad="The first row remains only if you already transacted it separately. Flyway does not undo V1 because a later INSERT failed."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">FAQ: expose ConnectionIO so that:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">callers place one transact</button>
+            <button type="button">every method calls transact</button>
+            <button type="button">CREATE TABLE stays Scala</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Higher-level code composes the programs, then transacts once. DDL lives in versioned SQL. A single-row find may still transact at the rim." data-bad="If every write already transacted, a caller cannot share a rollback. CREATE TABLE in Scala is what Flyway replaces."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day23.Day23Suite'</code></pre>
+      <p>
+        Optionally run the main — it migrates H2, seeds two rates, and prints
+        <code>Some(RateRow(EUR,108))</code>:
+      </p>
+<pre><code>scala-cli run . --main-class day23.Day23</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>migrateDesk</code> and <code>bookFills</code> in
+        <a href="../src/main/scala/day23/ExercisesDay23.scala"><code>ExercisesDay23.scala</code></a>.
+        The spec is
+        <a href="../src/test/scala/day23/ExercisesDay23Suite.test.scala"><code>ExercisesDay23Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        <code>migrateDesk</code> must run Flyway against the given JDBC URL
+        and return <code>migrationsExecuted</code>. Wrap it in
+        <code>IO { }</code>. Use
+        <code>classpath:db/migration</code> — do not
+        <code>CREATE TABLE</code> in Scala.
+        <code>bookFills</code> must stay <code>ConnectionIO</code>: compose
+        <code>insertFill(...).run</code> for both rows. The tests call
+        <code>.transact(xa)</code>.
+        Do not transact inside <code>bookFills</code>, do not put JDBC in
+        <code>rateOf</code>, do not call <code>postgresFlyway.migrate</code>,
+        do not start Testcontainers.
+        Then run
+        <code>scala-cli test . --test-only 'day23.ExercisesDay23Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why does EUR survive the duplicate
+        insert?”) over “explain transactions again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0018-postgresql-repository-layer.html">PostgreSQL repository layer</a>
+          · Cheat sheet:
+          <a href="../reference/migrations.html">Schema migrations and transactions</a>
+          · Database integration tests are the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+CREATE TABLE rate (
+  code  VARCHAR NOT NULL PRIMARY KEY,
+  cents INTEGER NOT NULL
+);

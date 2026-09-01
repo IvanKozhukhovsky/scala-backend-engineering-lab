@@ -153,7 +153,9 @@
 - [doobie: Introduction](https://typelevel.org/doobie/docs/01-Introduction.html)
   Book framing and the same version pin. Skip the local `world` database setup until a later unit opens PostgreSQL.
 - [doobie: Connecting](https://typelevel.org/doobie/docs/03-Connecting.html)
-  `ConnectionIO[A]` as a program that needs a `Connection` later; `sql` interpolator; `transact` as the edge. For `scala-021` stop before `Transactor.fromDriverManager` as a skill. For `scala-022` read through a `for` comprehension plus `transact` (one transaction, commit/rollback, close). Stop before Kleisli interpreters.
+  `ConnectionIO[A]` as a program that needs a `Connection` later; `sql` interpolator; `transact` as the edge. For `scala-021` stop before `Transactor.fromDriverManager` as a skill. For `scala-022` read through a `for` comprehension plus `transact` (one transaction, commit/rollback, close). For `scala-023` the same chapter is the transaction boundary: compose first, `transact` once. Stop before Kleisli interpreters.
+- [doobie: FAQ — several things in the same transaction](https://typelevel.org/doobie/docs/17-FAQ.html)
+  Primary wording for `scala-023`: compose `ConnectionIO`, then `.transact(xa)`; expose `ConnectionIO` so callers place the boundary. Stop before `withoutTransaction`, `IN` clauses, and YOLO.
 - [doobie: Selecting Data](https://typelevel.org/doobie/docs/04-Selecting.html)
   `Query0`, `.query[A]`, `.option` / `.unique` / `.to[List]`, mapping rows to a case class by column position. Stop before HList, shapeless records, YOLO, and `Stream` as skills.
 - [doobie: Parameterized Queries](https://typelevel.org/doobie/docs/05-Parameterized.html)
@@ -168,6 +170,20 @@
   `doobie-postgres` `1.0.0-RC13` pulls in PostgreSQL JDBC Driver `42.7.10`. Driver class `org.postgresql.Driver`. Stop before arrays, enums, PostGIS, `LISTEN`, and `COPY`.
 - [doobie: Extensions for H2](https://typelevel.org/doobie/docs/16-Extensions-H2.html)
   `doobie-h2` `1.0.0-RC13` pulls in H2 `2.4.240` so tests can `transact` without Docker. Stop before `H2Transactor.newH2Transactor` as a skill — this unit uses DriverManager plus `DB_CLOSE_DELAY=-1`.
+- [Flyway: API (Java)](https://documentation.red-gate.com/flyway/reference/usage/api-java)
+  Primary install pin at `scala-023` teach time: OSS `org.flywaydb:flyway-core` `13.4.0` (Java 17+; this repo is JVM 21). `Flyway.configure().dataSource(url, user, password).load()` then `migrate()`. Stop before Spring XML and Redgate/Teams artifacts (`com.redgate.flyway`).
+- [Flyway: Quickstart - API](https://documentation.red-gate.com/flyway/getting-started-with-flyway/quickstart-guides/quickstart-api)
+  Primary narrative: `V1__Create_person_table.sql` under `src/main/resources/db/migration`, then a second versioned file; re-running applies only what is pending. Skip the Maven archetype.
+- [Flyway: Migrations](https://documentation.red-gate.com/flyway/flyway-concepts/migrations)
+  `migrate` on startup, idempotent, schema history table. Default wraps each migration script in a transaction. Stop before Undo, Callbacks, repeatable migrations, placeholders, and `clean`.
+- [Flyway: Locations](https://documentation.red-gate.com/flyway/reference/configuration/flyway-namespace/flyway-locations-setting)
+  API default `classpath:db/migration`. This repo adds `//> using resourceDir "./src/main/resources"` so that path exists.
+- [Flyway: SQL migration prefix](https://documentation.red-gate.com/flyway/reference/configuration/flyway-namespace/flyway-sql-migration-prefix-setting)
+  File shape `prefixVERSIONseparatorDESCRIPTIONsuffix`; defaults yield `V1.1__My_description.sql`.
+- [Flyway: PostgreSQL Database](https://documentation.red-gate.com/flyway/reference/database-driver-reference/postgresql-database)
+  Production module `org.flywaydb:flyway-database-postgresql` `13.4.0`. H2 support stays in `flyway-core`. Do not `migrate` a live Postgres until `scala-024`.
+- [Scala CLI: Directives — resourceDir](https://scala-cli.virtuslab.org/docs/reference/directives/)
+  `//> using resourceDir` puts a directory on the classpath so Flyway can see `db/migration`.
 
 ## Wisdom
 
@@ -178,6 +194,5 @@
 
 ## Gaps
 
-- Migration tooling will be selected at `scala-023` from current primary documentation rather than pinned prematurely.
-- A live PostgreSQL server and database integration-test harness wait until `scala-024`. This unit transacts against in-process H2 and records the Hikari + `org.postgresql.Driver` production shape without opening Postgres.
+- A live PostgreSQL server and database integration-test harness wait until `scala-024`. Flyway and doobie still transact against in-process H2 this unit; `postgresFlyway.load` / Hikari + `org.postgresql.Driver` record production shape without opening Postgres.
 - Deployment platform will be selected only when the capstone reaches production-readiness work.

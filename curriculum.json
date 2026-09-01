@@ -767,10 +767,27 @@
           "id": "scala-023",
           "sequence": 23,
           "title": "Schema migrations and transactional boundaries",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0019-schema-migrations-and-transactional-boundaries.html"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day23/ExercisesDay23Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day23/ExercisesDay23.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0018-a-finished-transact-is-already-committed.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/26"
         },
         {

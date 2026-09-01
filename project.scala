@@ -27,6 +27,12 @@
 //> using dep "org.typelevel::doobie-postgres::1.0.0-RC13"
 //> using dep "org.typelevel::doobie-hikari::1.0.0-RC13"
 //> using dep "org.typelevel::doobie-h2::1.0.0-RC13"
+// Flyway: OSS Java API pin from the Java API page at scala-023 teach time (13.4.0, 26 Aug 2026).
+// Java artifact: one colon. Postgres support is a separate module; H2 stays in flyway-core.
+// Default API location is classpath:db/migration — resourceDir puts SQL files on that path.
+//> using dep "org.flywaydb:flyway-core:13.4.0"
+//> using dep "org.flywaydb:flyway-database-postgresql:13.4.0"
+//> using resourceDir "./src/main/resources"
 //> using test.dep "org.typelevel::log4cats-testing::2.7.1"
 //> using test.dep "org.scalameta::munit::1.0.4"
 // munit-scalacheck has no 1.0.4; 1.0.0 is the 1.0 line. ScalaCheck 1.18.0 is transitive.

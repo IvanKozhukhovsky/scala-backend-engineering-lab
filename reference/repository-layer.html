@@ -75,7 +75,8 @@ Transactor.fromDriverManager[IO](
         <li>Use DriverManager against Postgres as the production pool.</li>
         <li>Call <code>postgresPool.use</code> without a live Postgres (that is a later unit).</li>
         <li>Introduce Flyway, Testcontainers, <code>H2Transactor</code>,
-          <code>pgtypes</code>, <code>LISTEN</code>, or custom <code>Strategy</code>.</li>
+          <code>pgtypes</code>, <code>LISTEN</code>, or custom <code>Strategy</code>
+          in <em>this</em> unit — Flyway is <a href="migrations.html">scala-023</a>.</li>
       </ul>
 
       <footer class="meta">
