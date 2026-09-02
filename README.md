@@ -25,6 +25,7 @@ python3 scripts/progress.py show
 - Scalafmt
 - Metals in Cursor
 - GitHub Actions
+- Docker Engine (required for `scala-024` Postgres integration tests via Testcontainers)
 
 The repository intentionally uses the Scala LTS line for a stable learning baseline. Version-sensitive ecosystem choices are revisited at the phase where they become relevant instead of being added prematurely.
 
@@ -35,6 +36,8 @@ Install JDK 21, Scala CLI, and the Metals extension, then from the repository ro
 ```bash
 scala-cli test .
 ```
+
+Postgres integration tests (`day24`) need a running Docker-compatible daemon. The earlier H2 suites do not.
 
 Format sources:
 

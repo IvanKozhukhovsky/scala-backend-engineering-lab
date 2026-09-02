@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Database integration tests</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-024 · Phase 06 · Persistence</p>
+      <h1>Database integration tests</h1>
+      <p class="lede">
+        You can start a disposable Postgres with Testcontainers, wait until it is
+        ready, migrate the same versioned SQL, transact through the real JDBC
+        driver, and stop the container with <code>Resource.use</code> — even when
+        the test fails.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 23 already bought</a></li>
+          <li><a href="#layers">H2 versus Postgres</a></li>
+          <li><a href="#container">PostgreSQLContainer is a Resource</a></li>
+          <li><a href="#url">Read the URL; do not hide start</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 15: <code>Resource.use</code> still runs release when the inner
+        <code>IO</code> fails.
+        Day 20: <code>HttpApp.run</code> is a function call;
+        Ember over loopback is the socket.
+        Day 22: tests used H2 mem and
+        <code>DB_CLOSE_DELAY=-1</code> because <code>transact</code> always
+        closes the connection. Production shape was Hikari plus
+        <code>org.postgresql.Driver</code> — never started.
+        Day 23: Flyway owns <code>V1__</code> / <code>V2__</code>; two
+        <code>transact</code> calls are two commits.
+        Before reading on: if a test only ever talks to H2, what has it
+        <em>not</em> proven about <code>VARCHAR</code> or a primary-key
+        conflict? If you put
+        <code>jdbc:postgresql://localhost:5432/quotes</code> in the suite,
+        whose laptop has to be running Postgres?
+      </section>
+
+      <h2 id="layers">H2 versus Postgres</h2>
+      <p>
+        Days 22–23 already tested the persistence <em>program</em>: bind
+        parameters, one <code>transact</code>, Flyway files on
+        <code>classpath:db/migration</code>. That is still the fast suite.
+        It never started PostgreSQL. H2 accepted the same
+        <code>CREATE TABLE</code>. It is not the engine you will run in
+        production.<a class="sidenote-ref" href="#sn-h2">1</a>
+      </p>
+      <aside class="sidenote" id="sn-h2">
+        Docker’s replace-H2 guide is blunt: in-memory H2 “doesn’t behave
+        exactly like the real database.” Features such as
+        <code>ON CONFLICT</code> are a Postgres dialect. Keep H2 for
+        ConnectionIO and Flyway mechanics. This unit’s skill is a live
+        catalog.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>jdbc:h2:mem:day23-find;DB_CLOSE_DELAY=-1
+postgresFlyway(...).load()</code>
+    <span>Fast. Wrong engine. <code>load</code> still does not open Postgres.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>pg.start()
+migrateQuotesPg(pg.getJdbcUrl, …)</code>
+    <span>Same SQL files. <code>org.postgresql.Driver</code>. A real catalog.</span>
+  </div>
+  <figcaption>In-process checks the program. Integration checks the engine.</figcaption>
+</figure>
+      <p>
+        A local install on port 5432 has the same smell as the Redis
+        example in the Testcontainers quickstart: it works only if every
+        laptop and CI image already has that server, and parallel tests
+        share one catalog. The module starts a container instead, maps a
+        random host port, and waits until Postgres has logged that it is
+        ready — twice, with a 60s timeout, already configured on
+        <code>PostgreSQLContainer</code>.<a class="sidenote-ref" href="#sn-wait">2</a>
+      </p>
+      <aside class="sidenote" id="sn-wait">
+        Postgres module, Testcontainers 2.0.5: artifact
+        <code>org.testcontainers:testcontainers-postgresql</code>.
+        Package is <code>org.testcontainers.postgresql</code> — not
+        <code>org.testcontainers.containers</code> (that was 1.x).
+        You need a Docker-API runtime. JUnit
+        <code>@Container</code> waits; this repo is MUnit, so we wrap
+        <code>start</code> / <code>stop</code> ourselves.
+      </aside>
+
+      <h2 id="container">PostgreSQLContainer is a Resource</h2>
+      <p>
+        Constructing the object does not pull an image and does not
+        listen. <code>start()</code> is the session: discover Docker, pull
+        if needed, run, wait. <code>stop()</code> deletes the container.
+        That is the same split as Flyway <code>load</code> versus
+        <code>migrate</code>, and as Ember <code>.build</code> versus
+        <code>Resource.use</code>.
+      </p>
+<pre><code>import org.testcontainers.postgresql.PostgreSQLContainer
+
+val quotesImage = "postgres:16-alpine"
+
+def quotesContainer: PostgreSQLContainer =
+  new PostgreSQLContainer(quotesImage)
+
+def quotesPg: Resource[IO, PostgreSQLContainer] =
+  Resource.make(IO {
+    val pg = quotesContainer
+    pg.start()
+    pg
+  })(pg =&gt; IO { pg.stop() })
+
+def withQuotesPg[A](run: (String, String, String) =&gt; IO[A]): IO[A] =
+  quotesPg.use { pg =&gt;
+    run(pg.getJdbcUrl, pg.getUsername, pg.getPassword)
+  }</code></pre>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>new PostgreSQLContainer("postgres:16-alpine")
+jdbc:postgresql://localhost:5432/quotes</code>
+    <span>The object is idle. The URL assumes a shared server on 5432.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>pg.start()
+pg.getJdbcUrl   // host + mapped port
+pg.getUsername
+pg.getPassword</code>
+    <span>Quickstart: do not hard-code <code>localhost:5432</code>. Ask the container.</span>
+  </div>
+  <figcaption>Construction is not Docker. The mapped port is the destination.</figcaption>
+</figure>
+      <p>
+        After start, pass those three strings into Day 23’s Flyway and Day
+        22’s <code>Transactor.fromDriverManager</code> with
+        <code>org.postgresql.Driver</code>. Default database, user, and
+        password are <code>test</code> — not H2’s <code>sa</code>.
+        <code>getJdbcUrl</code> is <code>jdbc:postgresql://</code> plus
+        <code>getHost()</code> plus the mapped 5432. That is the real
+        driver. Keep <code>rateOf</code> as <code>Map.get</code>.
+      </p>
+<pre><code>def postgresXa(url: String, user: String, password: String) =
+  Transactor.fromDriverManager[IO](
+    driver = "org.postgresql.Driver",
+    url = url,
+    user = user,
+    password = password,
+    logHandler = None
+  )
+
+def migrateQuotesPg(url: String, user: String, password: String): IO[Int] =
+  IO {
+    Flyway.configure()
+      .dataSource(url, user, password)
+      .locations("classpath:db/migration")
+      .load()
+      .migrate()
+      .migrationsExecuted
+  }
+
+withQuotesPg { (url, user, password) =&gt;
+  val xa = postgresXa(url, user, password)
+  migrateQuotesPg(url, user, password) *&gt;
+    seedRates.transact(xa) *&gt;
+    RateRepository(xa).find("EUR")
+}</code></pre>
+      <p>
+        <code>select version()</code> on this catalog contains
+        <code>PostgreSQL</code>. H2’s <code>version()</code> does not.
+        Same <code>V1__</code> / <code>V2__</code> files. Same
+        <code>transact</code> rule: two sessions are two commits.
+      </p>
+
+      <h2 id="url">Read the URL; do not hide start</h2>
+      <p>
+        JDBC support also offers
+        <code>jdbc:tc:postgresql:…:///databasename</code>. The page says
+        Testcontainers will start a container “automagically,” and that
+        host, port, and database name in that URL are ignored. By default
+        that container <em>stops as soon as the last connection
+        closes</em>.<a class="sidenote-ref" href="#sn-tc">3</a>
+      </p>
+      <aside class="sidenote" id="sn-tc">
+        <code>transact</code> always closes the connection. That is the
+        same class of bug as H2 mem without
+        <code>DB_CLOSE_DELAY=-1</code>, except now the whole Postgres
+        disappears. <code>TC_DAEMON=true</code> papers over it. We do not
+        use the <code>jdbc:tc:</code> driver as the skill.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>jdbc:tc:postgresql:16-alpine:///quotes
+// no PostgreSQLContainer
+// transact closes → container may stop</code>
+    <span>Lifecycle is inside the driver. Flyway and the next <code>transact</code> do not share a story you can read.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>Resource.make(IO { pg.start(); pg })
+           (pg =&gt; IO { pg.stop() })</code>
+    <span>Start, migrate, transact, stop. Release still runs if the <code>IO</code> fails.</span>
+  </div>
+  <figcaption>Day 20 did not treat <code>fromHttpApp</code> as Ember. Do not treat <code>jdbc:tc:</code> as this unit.</figcaption>
+</figure>
+      <p>
+        Hikari <code>postgresPool.use</code> is now a legal inner
+        <code>Resource</code> — you finally have a live URL. Tests may
+        still use DriverManager. Do not delete the H2 suites; they stay
+        the fast check. Docker packaging of the <em>app</em> is the next
+        phase, not this one.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read the Testcontainers
+        <a href="https://java.testcontainers.org/modules/databases/postgres/">Postgres module</a>
+        through container creation and the Maven/Gradle pin
+        (<code>testcontainers-postgresql</code> <code>2.0.5</code>;
+        you still need the Postgres JDBC driver — this repo already has
+        <code>doobie-postgres</code>).
+        Read
+        <a href="https://testcontainers.com/modules/postgresql/">PostgreSQL module examples</a>
+        for <code>new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine")); postgres.start()</code>.
+        Read
+        <a href="https://java.testcontainers.org/modules/databases/jdbc/">JDBC support</a>
+        through <em>Database container objects</em>
+        (<code>getJdbcUrl</code> / <code>getUsername</code> /
+        <code>getPassword</code>).
+        Treat the <code>jdbc:tc:</code> URL scheme as something to
+        recognise, not as the API you write
+        (stop before init scripts, <code>TC_DAEMON</code>, and
+        <code>TC_TMPFS</code> as skills).
+        Skim the
+        <a href="https://java.testcontainers.org/quickstart/junit_4_quickstart/">JUnit 4 Quickstart</a>
+        through “make sure our code can talk to the container”
+        (<code>getHost</code>, mapped port — do not hard-code
+        <code>localhost:6379</code>). Skip <code>@Rule</code> as a skill;
+        this repo wraps <code>start</code> / <code>stop</code> in
+        <code>Resource.make</code>.
+        Skim
+        <a href="https://java.testcontainers.org/supported_docker_environment/">container runtime requirements</a>
+        (Docker Desktop / Docker Engine).
+        Optional: Docker
+        <a href="https://docs.docker.com/guides/testcontainers-java-replace-h2/">Replace H2 with a real database</a>
+        for why the in-memory engine is not enough.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Database integration tests retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">PostgreSQLContainer.start() does:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">start Docker then wait</button>
+            <button type="button">open a Hikari pool</button>
+            <button type="button">write an H2 catalog</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Construction does not pull or listen. start() is the session; the module already waits for Postgres to be ready." data-bad="Hikari is still Day 22’s pool. H2 is the fast suite. start() talks to Docker."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">getJdbcUrl after start is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">host plus mapped port</button>
+            <button type="button">always localhost port 5432</button>
+            <button type="button">automatic jdbc:tc: driver</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="jdbc:postgresql:// plus getHost() plus the mapped 5432. Quickstart: do not hard-code the listen port." data-bad="5432 inside the container is not the host port. jdbc:tc: is the hidden driver, not getJdbcUrl."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">H2 mem tests should:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">keep the fast suite</button>
+            <button type="button">delete every H2 test</button>
+            <button type="button">skip Flyway on Postgres</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Same split as HttpApp.run versus Ember. Flyway still runs on the live catalog. H2 stays cheap." data-bad="Replacing H2 with one container makes the whole suite slow. Skipping Flyway would leave the tables uncreated."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Resource.make start/stop means:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">release even on error</button>
+            <button type="button">release only after success</button>
+            <button type="button">Ryuk becomes the Transactor</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Same as Ember and Day 15: use still runs stop if the inner IO fails. Ryuk is Testcontainers’ reaper, not JDBC." data-bad="If stop ran only on success, a failed assertion would leak a Postgres. Ryuk is not a Transactor."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Docker must be running. Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day24.Day24Suite'</code></pre>
+      <p>
+        Optionally run the main — it starts Postgres, migrates, seeds two
+        rates, and prints <code>Some(RateRow(EUR,108))</code>:
+      </p>
+<pre><code>scala-cli run . --main-class day24.Day24</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>deskPg</code>, <code>withDeskPg</code>, and
+        <code>migrateDeskPg</code> in
+        <a href="../src/main/scala/day24/ExercisesDay24.scala"><code>ExercisesDay24.scala</code></a>.
+        The spec is
+        <a href="../src/test/scala/day24/ExercisesDay24Suite.test.scala"><code>ExercisesDay24Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        <code>deskPg</code> must <code>start</code> a
+        <code>PostgreSQLContainer(quotesImage)</code> and
+        <code>stop</code> it in <code>Resource.make</code>.
+        <code>withDeskPg</code> must pass
+        <code>getJdbcUrl</code> / <code>getUsername</code> /
+        <code>getPassword</code> into <code>run</code>.
+        <code>migrateDeskPg</code> must run Flyway against those
+        credentials and return <code>migrationsExecuted</code>. Wrap it in
+        <code>IO { }</code>. Use
+        <code>classpath:db/migration</code> — do not
+        <code>CREATE TABLE</code> in Scala.
+        Do not use <code>jdbc:h2</code> or <code>jdbc:tc:</code>, do not
+        alias <code>quotesPg</code> / <code>withQuotesPg</code>, do not
+        put JDBC or Docker inside <code>rateOf</code>.
+        Then run
+        <code>scala-cli test . --test-only 'day24.ExercisesDay24Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why is jdbc:tc: a problem with transact?”)
+        over “explain Testcontainers again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0019-schema-migrations-and-transactional-boundaries.html">Schema migrations and transactional boundaries</a>
+          · Cheat sheet:
+          <a href="../reference/db-integration.html">Database integration tests</a>
+          · Docker packaging of the app is the next phase — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -181,9 +181,21 @@
 - [Flyway: SQL migration prefix](https://documentation.red-gate.com/flyway/reference/configuration/flyway-namespace/flyway-sql-migration-prefix-setting)
   File shape `prefixVERSIONseparatorDESCRIPTIONsuffix`; defaults yield `V1.1__My_description.sql`.
 - [Flyway: PostgreSQL Database](https://documentation.red-gate.com/flyway/reference/database-driver-reference/postgresql-database)
-  Production module `org.flywaydb:flyway-database-postgresql` `13.4.0`. H2 support stays in `flyway-core`. Do not `migrate` a live Postgres until `scala-024`.
+  Production module `org.flywaydb:flyway-database-postgresql` `13.4.0`. H2 support stays in `flyway-core`. `scala-024` migrates a Testcontainers Postgres; do not `migrate` an ad-hoc developer `localhost:5432`.
 - [Scala CLI: Directives — resourceDir](https://scala-cli.virtuslab.org/docs/reference/directives/)
   `//> using resourceDir` puts a directory on the classpath so Flyway can see `db/migration`.
+- [Testcontainers: Postgres module](https://java.testcontainers.org/modules/databases/postgres/)
+  Primary install pin at `scala-024` teach time: Java `org.testcontainers:testcontainers-postgresql` `2.0.5`. Package `org.testcontainers.postgresql.PostgreSQLContainer` (2.x; not `org.testcontainers.containers`). The library does not pull a JDBC driver — this repo already has `doobie-postgres`. Stop before PostGIS / pgvector / Timescale as skills.
+- [Testcontainers: PostgreSQL module examples](https://testcontainers.com/modules/postgresql/)
+  `new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine")); postgres.start()`. Image pin used in this unit.
+- [Testcontainers: JDBC support](https://java.testcontainers.org/modules/databases/jdbc/)
+  `getJdbcUrl` / `getUsername` / `getPassword` after you instantiate the container. Recognise `jdbc:tc:postgresql:…` as the hidden driver (host/port ignored; default stop when the last connection closes). Stop before init scripts, `TC_DAEMON`, and `TC_TMPFS` as skills.
+- [Testcontainers: JUnit 4 Quickstart](https://java.testcontainers.org/quickstart/junit_4_quickstart/)
+  Why a local install is unreliable; randomised host/port; `getHost()` rather than hard-coded `localhost`. Skip `@Rule` as a skill — this repo is MUnit and wraps `start` / `stop` in `Resource.make`.
+- [Testcontainers: container runtime requirements](https://java.testcontainers.org/supported_docker_environment/)
+  Docker Engine / Docker Desktop (or Testcontainers Cloud). Needed before `start()`.
+- [Docker: Replace H2 with a real database](https://docs.docker.com/guides/testcontainers-java-replace-h2/)
+  Why an H2 suite does not prove Postgres dialect behaviour. Optional companion; keep H2 as the fast suite.
 
 ## Wisdom
 
@@ -194,5 +206,5 @@
 
 ## Gaps
 
-- A live PostgreSQL server and database integration-test harness wait until `scala-024`. Flyway and doobie still transact against in-process H2 this unit; `postgresFlyway.load` / Hikari + `org.postgresql.Driver` record production shape without opening Postgres.
+- Reusable Testcontainers, Docker Compose modules, and packaging the *application* image wait until the production-engineering phase (`scala-025`).
 - Deployment platform will be selected only when the capstone reaches production-readiness work.

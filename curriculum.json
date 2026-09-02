@@ -794,10 +794,27 @@
           "id": "scala-024",
           "sequence": 24,
           "title": "Database integration tests",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0020-database-integration-tests.html"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day24/ExercisesDay24Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day24/ExercisesDay24.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0019-transact-closes-a-connection-use-stops-the-container.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/25"
         }
       ]

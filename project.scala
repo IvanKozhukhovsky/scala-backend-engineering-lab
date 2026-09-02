@@ -32,6 +32,11 @@
 // Default API location is classpath:db/migration — resourceDir puts SQL files on that path.
 //> using dep "org.flywaydb:flyway-core:13.4.0"
 //> using dep "org.flywaydb:flyway-database-postgresql:13.4.0"
+// Testcontainers: Postgres module pin from the Postgres Module page at scala-024 teach time (2.0.5).
+// Java artifact (one colon). 2.x class is org.testcontainers.postgresql.PostgreSQLContainer
+// (not org.testcontainers.containers). Image in the lesson: postgres:16-alpine.
+// This is a test harness, not a production pool. start() needs a Docker-API runtime.
+//> using dep "org.testcontainers:testcontainers-postgresql:2.0.5"
 //> using resourceDir "./src/main/resources"
 //> using test.dep "org.typelevel::log4cats-testing::2.7.1"
 //> using test.dep "org.scalameta::munit::1.0.4"

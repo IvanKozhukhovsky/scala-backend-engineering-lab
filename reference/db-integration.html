@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Database integration tests cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-024</p>
+      <h1>Database integration tests</h1>
+      <p class="lede">Start Postgres. Read host and mapped port. Migrate. Transact. Stop even on failure.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0020-database-integration-tests.html">Database integration tests</a>.
+        Docs:
+        <a href="https://java.testcontainers.org/modules/databases/postgres/">Postgres module</a>,
+        <a href="https://java.testcontainers.org/modules/databases/jdbc/">JDBC support</a>,
+        <a href="https://java.testcontainers.org/quickstart/junit_4_quickstart/">JUnit 4 Quickstart</a>.
+        This repo pins <code>org.testcontainers:testcontainers-postgresql:2.0.5</code>.
+        Package: <code>org.testcontainers.postgresql.PostgreSQLContainer</code>.
+        Image: <code>postgres:16-alpine</code>.
+        Docker-API runtime required.
+      </p>
+
+      <h2>Layers</h2>
+      <ul>
+        <li>H2 mem — fast program check. Wrong engine.</li>
+        <li><code>postgresFlyway(...).load()</code> — shape only; does not open Postgres.</li>
+        <li><code>PostgreSQLContainer.start()</code> — live catalog, mapped port, real driver.</li>
+      </ul>
+
+      <h2>Harness</h2>
+<pre><code>Resource.make(IO {
+  val pg = new PostgreSQLContainer("postgres:16-alpine")
+  pg.start()
+  pg
+})(pg =&gt; IO { pg.stop() })
+  .use { pg =&gt;
+    run(pg.getJdbcUrl, pg.getUsername, pg.getPassword)
+  }</code></pre>
+      <ul>
+        <li>Construction does not pull or listen. <code>start</code> waits (module log strategy, 60s).</li>
+        <li>Ask <code>getHost()</code> / mapped port. Do not hard-code <code>localhost:5432</code>.</li>
+        <li><code>getJdbcUrl</code> is <code>jdbc:postgresql://…</code>, not <code>jdbc:h2</code> or <code>jdbc:tc:</code>.</li>
+      </ul>
+
+      <h2>Migrate then transact</h2>
+<pre><code>Flyway.configure()
+  .dataSource(url, user, password)   // container credentials, not sa
+  .locations("classpath:db/migration")
+  .load()
+  .migrate()
+
+Transactor.fromDriverManager[IO](
+  driver = "org.postgresql.Driver",
+  url = url, user = user, password = password,
+  logHandler = None
+)</code></pre>
+      <ul>
+        <li>Same <code>V1__</code> / <code>V2__</code> as H2. <code>select version()</code> contains <code>PostgreSQL</code>.</li>
+        <li>Two <code>transact</code> calls are still two commits.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Keep the H2 suites. This unit samples the engine.</li>
+        <li>Wrap <code>start</code> / <code>stop</code> in <code>Resource.make</code> (MUnit has no <code>@Container</code>).</li>
+        <li>Keep <code>rateOf</code> as the pure <code>Map</code> lookup this unit.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Treat <code>jdbc:tc:</code> as the integration test — it hides start/stop; default stop-on-last-close fights <code>transact</code>.</li>
+        <li>Point tests at a developer’s <code>localhost:5432</code>.</li>
+        <li>Put Docker or JDBC inside <code>rateOf</code> / <code>convertAmount</code>.</li>
+        <li>Introduce JUnit 5, <code>testcontainers-scala</code>, Flyway <code>clean</code>, reusable containers, or app Dockerfiles (next phase).</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="migrations.html">Schema migrations and transactions</a>,
+          <a href="repository-layer.html">PostgreSQL repository layer</a>,
+          <a href="http-integration.html">HTTP integration testing</a>,
+          <a href="resource-fiber.html">Resource and fibers</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

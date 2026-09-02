@@ -59,7 +59,8 @@ insertRate(eur).run.transact(xa)     // fails; EUR remains</code></pre>
       <ul>
         <li>Share the JDBC URL between Flyway and the Transactor (H2: unique mem name, <code>DB_CLOSE_DELAY=-1</code>).</li>
         <li>Keep <code>rateOf</code> as the pure <code>Map</code> lookup this unit.</li>
-        <li>Keep production <code>postgresFlyway(...).load()</code> unmigrated until a live Postgres exists.</li>
+        <li>Keep production <code>postgresFlyway(...).load()</code> unmigrated until a live Postgres exists
+          (<a href="db-integration.html">scala-024</a>).</li>
       </ul>
 
       <h2>Do not</h2>
@@ -67,7 +68,8 @@ insertRate(eur).run.transact(xa)     // fails; EUR remains</code></pre>
         <li><code>CREATE TABLE</code> in Scala now that versioned SQL exists.</li>
         <li>Transact each write when the pair must share a rollback.</li>
         <li>Put Flyway or JDBC inside <code>rateOf</code> / <code>convertAmount</code>.</li>
-        <li>Introduce Testcontainers, Flyway <code>clean</code>, undo, Java migrations, or custom <code>Strategy</code>.</li>
+        <li>Introduce Testcontainers, Flyway <code>clean</code>, undo, Java migrations, or custom <code>Strategy</code>
+          in <em>this</em> unit — Testcontainers is <a href="db-integration.html">scala-024</a>.</li>
       </ul>
 
       <footer class="meta">
