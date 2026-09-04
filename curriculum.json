@@ -859,10 +859,27 @@
           "id": "scala-026",
           "sequence": 26,
           "title": "CI quality gates and dependency hygiene",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0022-ci-quality-gates-and-dependency-hygiene.html"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day26/ExercisesDay26Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day26/ExercisesDay26.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0021-github-actions-slash-is-not-a-docker-path.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/28"
         },
         {

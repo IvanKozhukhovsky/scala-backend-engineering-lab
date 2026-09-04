@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CI quality gates and dependency hygiene</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-026 · Phase 07 · Production Engineering</p>
+      <h1>CI quality gates and dependency hygiene</h1>
+      <p class="lede">
+        You can write a GitHub Actions workflow that fails closed on the same
+        checks you run locally, pin the runner and the toolchain instead of
+        <code>latest</code>, and point Dependabot at the ecosystems it can
+        actually bump — while Scala CLI pins stay a reviewed
+        <code>using dep</code> / <code>using test.dep</code> choice.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 25 already bought</a></li>
+          <li><a href="#gate">A workflow is a recipe that fails closed</a></li>
+          <li><a href="#pin">Pin the runner, the action, the CLI</a></li>
+          <li><a href="#hygiene">Dependabot sees YAML; Scala CLI does not</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 25: an image tag of <code>latest</code> is a moving target;
+        <code>eclipse-temurin:21-jre-alpine-3.24</code> is a pin.
+        <code>dockerfileOf</code> is text. Building the case class does not
+        talk to Docker.
+        Before reading on: if a teammate skips
+        <code>scala-cli fmt --check</code> and pushes, which file in this
+        repository is supposed to fail on a machine they do not own?
+        If Dependabot’s <code>package-ecosystem</code> is <code>sbt</code>,
+        what file in this lab would it look at?
+      </section>
+
+      <h2 id="gate">A workflow is a recipe that fails closed</h2>
+      <p>
+        GitHub Actions is a CI platform: a
+        <a href="https://docs.github.com/en/actions/get-started/understand-github-actions">workflow</a>
+        is a YAML file under <code>.github/workflows</code>. An
+        <em>event</em> starts a <em>run</em>. A <em>job</em> is a list of
+        <em>steps</em> on one
+        <a href="https://docs.github.com/en/actions/reference/runners/github-hosted-runners">runner</a>.
+        A step is either <code>uses:</code> (a reusable action) or
+        <code>run:</code> (a script). The recipe is not a running job —
+        the same split as a Dockerfile versus <code>docker run</code>.<a class="sidenote-ref" href="#sn-wf">1</a>
+      </p>
+      <aside class="sidenote" id="sn-wf">
+        <a href="https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax"><code>on</code></a>
+        names events. A bare <code>pull_request:</code> still needs the
+        colon. <code>push.branches</code> keeps this workflow off feature
+        branches you have not opened as a PR.
+      </aside>
+      <p>
+        <code>scripts/verify.py</code> already runs three commands:
+        <code>progress.py check</code>, <code>scala-cli fmt --check .</code>,
+        <code>scala-cli test .</code>. The workflow’s <code>run:</code>
+        steps are those commands on a GitHub-hosted VM. A non-zero exit
+        fails the step. <code>continue-on-error: true</code> would let
+        the job pass anyway — that is not a gate.
+      </p>
+      <p>
+        The
+        <a href="https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions"><code>permissions</code></a>
+        key limits <code>GITHUB_TOKEN</code>. This job only checks out
+        and runs commands, so
+        <code>contents: read</code>.
+        <code>write-all</code> is the opposite of minimum access.
+        Action SHA pinning and non-root Docker <code>USER</code> wait
+        for the security unit.
+      </p>
+      <p>
+        <code>QualityPipeline</code> in
+        <a href="../src/main/scala/day26/Day26.scala"><code>Day26.scala</code></a>
+        is that contract as data. <code>workflowOf</code> renders it.
+        Building the case class does not talk to GitHub.
+      </p>
+
+      <h2 id="pin">Pin the runner, the action, the CLI</h2>
+      <p>
+        GitHub’s runner docs: the
+        <code>-latest</code> label is the latest <em>stable image GitHub
+        provides</em>, and they move it. Today
+        <code>ubuntu-latest</code> and
+        <code>ubuntu-24.04</code> are the same Ubuntu 24.04 image. The
+        pin is the versioned label, for the same reason Day 25 did not
+        tag the quotes image <code>latest</code>.<a class="sidenote-ref" href="#sn-latest">2</a>
+      </p>
+      <aside class="sidenote" id="sn-latest">
+        <a href="https://docs.github.com/en/actions/reference/runners/github-hosted-runners">GitHub-hosted runners</a>
+        and the
+        <a href="https://github.com/actions/runner-images">runner-images</a>
+        README: specify an OS version to avoid an unplanned migration.
+        You still cannot pin a particular weekly image rebuild.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>runs-on: ubuntu-latest
+uses: VirtusLab/scala-cli-setup@main
+permissions: write-all</code>
+    <span>Moving runner. Action follows whoever pushed to main. Token can write the repo.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>runs-on: ubuntu-24.04
+uses: VirtusLab/scala-cli-setup@v1.16.0
+permissions:
+  contents: read</code>
+    <span>Versioned runner. Versioned action plus <code>scala-cli-version: "1.16.0"</code>. Read-only token.</span>
+  </div>
+  <figcaption>The recipe is the contract. Tests inspect this text; they do not have to wait for a GitHub run.</figcaption>
+</figure>
+      <p>
+        The
+        <a href="https://github.com/VirtusLab/scala-cli-setup">scala-cli-setup</a>
+        action can take <code>scala-cli-version: "latest"</code>. This
+        lab pins <code>v1.16.0</code> on the action <em>and</em>
+        <code>"1.16.0"</code> on the CLI it installs. Tests compare
+        <code>.github/workflows/ci.yml</code> to
+        <code>workflowOf(quotesPipeline)</code> exactly.
+      </p>
+
+      <h2 id="hygiene">Dependabot sees YAML; Scala CLI does not</h2>
+      <p>
+        <a href="https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-version-updates">Dependabot version updates</a>
+        read <code>.github/dependabot.yml</code>:
+        <code>version: 2</code>, then one
+        <code>updates</code> entry per ecosystem.
+        <code>github-actions</code> with
+        <code>directory: /</code> watches
+        <code>.github/workflows</code>.
+        <code>docker</code> with
+        <code>directory: /packaging/quotes</code> watches that
+        Dockerfile’s <code>FROM</code>. Each entry needs
+        <code>schedule.interval</code> — this lab uses
+        <code>weekly</code>. Dependabot opens a PR; CI is what tells
+        you whether the bump is safe.<a class="sidenote-ref" href="#sn-dep">3</a>
+      </p>
+      <aside class="sidenote" id="sn-dep">
+        The
+        <a href="https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference">ecosystem list</a>
+        includes <code>sbt</code>. This repository is Scala CLI. A
+        <code>package-ecosystem: sbt</code> entry would look for
+        <code>build.sbt</code>, which we do not have.
+      </aside>
+      <p>
+        Scala library pins live in <code>project.scala</code>.
+        Scala CLI’s
+        <a href="https://scala-cli.virtuslab.org/docs/guides/introduction/using-directives/">using directives</a>
+        distinguish <code>using dep</code> (compile classpath, packaged
+        into an assembly) from
+        <a href="https://scala-cli.virtuslab.org/docs/commands/test/"><code>using test.dep</code></a>
+        (test sources only). MUnit is <code>test.dep</code>.
+        Testcontainers is still <code>using dep</code> in this lab
+        because Day 24’s <code>@main</code> starts a container — moving
+        it would break that main, not “fix hygiene.” Dependabot cannot
+        see those lines. A Scala CLI “outdated” hint is not a CI
+        failure; bump a pin only with a docs rationale, the way
+        <code>project.scala</code> already comments.
+      </p>
+<pre><code>version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /packaging/quotes
+    schedule:
+      interval: weekly</code></pre>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>package-ecosystem: sbt
+directory: /
+using dep org.scalameta::munit</code>
+    <span>Wrong manifest. Test library on the compile classpath and in the assembly.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>package-ecosystem: github-actions
+directory: /packaging/quotes
+using test.dep for MUnit</code>
+    <span>Actions and the quotes image get PRs. MUnit stays off the runtime classpath.</span>
+  </div>
+  <figcaption>Hygiene is which file a tool can see, and which classpath a library belongs on.</figcaption>
+</figure>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read GitHub
+        <a href="https://docs.github.com/en/actions/get-started/understand-github-actions">Understanding GitHub Actions</a>
+        (workflow, event, job, step, action, runner). Stop before
+        agentic workflows and GitHub Certifications.
+        Read
+        <a href="https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax">Workflow syntax</a>
+        for <code>on</code>,
+        <code>permissions</code> (<code>contents: read</code> versus
+        <code>write-all</code>), and
+        <code>jobs.&lt;job_id&gt;.steps[*].continue-on-error</code>
+        (default is fail closed). Stop before matrices, reusable
+        workflows, and containers as skills.
+        Read
+        <a href="https://docs.github.com/en/actions/reference/runners/github-hosted-runners">GitHub-hosted runners</a>
+        through the note on <code>-latest</code>. Pin
+        <code>ubuntu-24.04</code> in this unit.
+        Read
+        <a href="https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-version-updates">Configuring Dependabot version updates</a>
+        and
+        <a href="https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/auto-update-actions">Keeping your actions up to date</a>
+        (<code>github-actions</code> at <code>/</code>,
+        <code>docker</code> at the Dockerfile’s directory).
+        Skim the
+        <a href="https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference">ecosystem table</a>
+        so you can recognise <code>sbt</code> as the wrong entry here.
+        Read Scala CLI
+        <a href="https://scala-cli.virtuslab.org/docs/guides/introduction/using-directives/">Using directives</a>
+        through <em>Directives with a test scope equivalent</em> and
+        <a href="https://scala-cli.virtuslab.org/docs/commands/test/">Test</a>
+        on <code>test.dep</code>. Stop before <code>test.toolkit latest</code>.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="CI quality gates retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A workflow file is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">checked-in YAML job recipe</button>
+            <button type="button">a currently running process</button>
+            <button type="button">Coursier cache action pin</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="GitHub: a workflow is YAML in the repository. A run is the process on a runner. An action pin is one step inside that YAML." data-bad="A running job is a workflow run. coursier/cache-action@v8 is one pinned uses: line, not the definition of a workflow."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">This job’s runner should be:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">pin ubuntu-24.04 not latest</button>
+            <button type="button">floating action at main</button>
+            <button type="button">write-all token for jobs</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="ubuntu-24.04 is the versioned label. ubuntu-latest moves when GitHub migrates. @main and write-all are the other two anti-patterns from this unit." data-bad="VirtusLab/scala-cli-setup@main follows whoever pushed. write-all grants GITHUB_TOKEN more than checkout-and-test needs."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Dependabot docker directory is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">folder with the Dockerfile</button>
+            <button type="button">GitHub Actions runner label</button>
+            <button type="button">using test.dep for munit</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="directory: /packaging/quotes is where that Dockerfile lives. github-actions still uses directory: / for workflows." data-bad="ubuntu-24.04 is the runner. test.dep is a Scala CLI scope, which Dependabot does not read."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">MUnit in project.scala is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">using test.dep only</button>
+            <button type="button">using dep compile scope</button>
+            <button type="button">baked into image ENV</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="test.dep keeps MUnit off the compile classpath and out of the assembly. Day 24’s Testcontainers stays using dep because the main starts a container." data-bad="using dep puts a library on the compile classpath. ENV is Ciris config in the image, not a test framework."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Tests inspect the recipe. They do not start a GitHub run. Run the
+        worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day26.Day26Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>deskPipeline</code> and <code>deskUpdates</code> in
+        <a href="../src/main/scala/day26/ExercisesDay26.scala"><code>ExercisesDay26.scala</code></a>.
+        Write
+        <a href="../ci/desk.yml"><code>ci/desk.yml</code></a>
+        so the file equals <code>workflowOf(deskPipeline)</code> exactly,
+        and extend
+        <code>.github/dependabot.yml</code> so it equals
+        <code>dependabotOf(quotesUpdates :+ deskUpdates)</code>.
+        The spec is
+        <a href="../src/test/scala/day26/ExercisesDay26Suite.test.scala"><code>ExercisesDay26Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        Desk is pull-request only, job id <code>desk</code>, runner
+        <code>ubuntu-24.04</code>, <code>contents: read</code>, checkout
+        plus pinned scala-cli-setup, then <code>fmt --check</code> and
+        <code>scala-cli test . --test-only 'day26.ExercisesDay26Suite'</code>.
+        <code>deskUpdates</code> is Docker at
+        <code>/packaging/desk</code>, weekly.
+        Do not alias <code>quotesPipeline</code>, do not use
+        <code>ubuntu-latest</code> or <code>@main</code>, do not
+        <code>write-all</code>, do not <code>continue-on-error</code>,
+        do not <code>package-ecosystem: sbt</code>, do not put the
+        recipe under <code>.github/workflows</code>, do not move
+        Testcontainers to <code>test.dep</code>.
+        Then run
+        <code>scala-cli test . --test-only 'day26.ExercisesDay26Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why is sbt the wrong ecosystem?”)
+        over “explain CI again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0021-docker-and-reproducible-runtime-packaging.html">Docker and reproducible runtime packaging</a>
+          · Cheat sheet:
+          <a href="../reference/ci-quality-gates.html">CI quality gates</a>
+          · Security basics are the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

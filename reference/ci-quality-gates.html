@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CI quality gates cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-026</p>
+      <h1>CI quality gates and dependency hygiene</h1>
+      <p class="lede">Workflow is the recipe. A run is the process. Pin the runner, the action, and the CLI. Dependabot sees YAML; Scala CLI pins are reviewed by hand.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0022-ci-quality-gates-and-dependency-hygiene.html">CI quality gates and dependency hygiene</a>.
+        Docs:
+        <a href="https://docs.github.com/en/actions/get-started/understand-github-actions">Actions</a>,
+        <a href="https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax">workflow syntax</a>,
+        <a href="https://docs.github.com/en/actions/reference/runners/github-hosted-runners">runners</a>,
+        <a href="https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-version-updates">Dependabot</a>,
+        <a href="https://scala-cli.virtuslab.org/docs/guides/introduction/using-directives/">using directives</a>.
+        Pins: <code>ubuntu-24.04</code>,
+        <code>VirtusLab/scala-cli-setup@v1.16.0</code>,
+        <code>scala-cli-version: "1.16.0"</code>.
+      </p>
+
+      <h2>Layers</h2>
+      <ul>
+        <li>Workflow — checked-in YAML. Not a running job.</li>
+        <li>Event — <code>push</code> to <code>main</code>, <code>pull_request:</code>, <code>workflow_dispatch:</code>.</li>
+        <li>Job — steps on one runner. Non-zero exit fails the step unless <code>continue-on-error</code>.</li>
+        <li>Local twin — <code>python3 scripts/verify.py</code> is the same three <code>run:</code> commands.</li>
+      </ul>
+
+      <h2>Recipe</h2>
+<pre><code>name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-24.04</code></pre>
+      <ul>
+        <li><code>workflowOf(pipeline)</code> renders the same text. Tests compare; they need not wait for GitHub.</li>
+        <li><code>contents: read</code> is enough to check out and test. Not <code>write-all</code>.</li>
+      </ul>
+
+      <h2>Dependabot</h2>
+<pre><code>version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /packaging/quotes
+    schedule:
+      interval: weekly</code></pre>
+      <ul>
+        <li><code>github-actions</code> at <code>/</code> watches <code>.github/workflows</code>.</li>
+        <li><code>docker</code> directory is the folder that holds the Dockerfile.</li>
+        <li>Not <code>sbt</code> — this lab is Scala CLI. Pins in <code>project.scala</code> are reviewed by hand.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Pin <code>ubuntu-24.04</code>, action tags, and <code>scala-cli-version</code>.</li>
+        <li>Keep MUnit on <code>using test.dep</code>.</li>
+        <li>Let a Dependabot PR go through the same fmt/test gate.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li><code>ubuntu-latest</code>, <code>uses: …@main</code>, <code>scala-cli-version: latest</code>.</li>
+        <li><code>permissions: write-all</code>. <code>continue-on-error</code> on fmt or tests.</li>
+        <li><code>package-ecosystem: sbt</code>. <code>using dep</code> for MUnit.</li>
+        <li>Move Testcontainers to <code>test.dep</code> while Day 24’s main still starts a container.</li>
+        <li>Introduce action SHA pins, <code>USER</code>, image publishing, or required branch checks (later units).</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="docker-packaging.html">Docker packaging</a>,
+          <a href="db-integration.html">Database integration tests</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

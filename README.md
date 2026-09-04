@@ -24,7 +24,8 @@ python3 scripts/progress.py show
 - MUnit
 - Scalafmt
 - Metals in Cursor
-- GitHub Actions
+- GitHub Actions (`ubuntu-24.04`; workflow under `.github/workflows/ci.yml`)
+- Dependabot version updates for GitHub Actions and `packaging/quotes` (`scala-026`; desk image watch is the exercise)
 - Docker Engine (required for `scala-024` Postgres integration tests via Testcontainers)
 - App image recipe under `packaging/quotes/` (`scala-025`; tests inspect the Dockerfile, they do not require `docker build`)
 

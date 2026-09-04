@@ -39,7 +39,7 @@
 - [Scala CLI documentation](https://scala-cli.virtuslab.org/docs/)
   Primary source for compiling, testing, formatting, packaging, and IDE integration in this workspace.
 - [Scala CLI: Test](https://scala-cli.virtuslab.org/docs/commands/test)
-  Test sources (`src/test/scala`, `*.test.scala`), `scala-cli test .`, and `--test-only`.
+  Test sources (`src/test/scala`, `*.test.scala`), `scala-cli test .`, `--test-only`, and `using test.dep` so test-framework libraries stay off the main classpath (`scala-026`).
 - [Scala Style Guide](https://docs.scala-lang.org/style/)
   Baseline style guidance; repository-specific conventions take precedence when explicitly documented.
 - [MUnit documentation](https://scalameta.org/munit/)
@@ -210,6 +210,26 @@
   `COPY` a JAR and `CMD ["java", "-jar", …]`. This unit pins `eclipse-temurin:21-jre-alpine-3.24` (JVM 21, JRE, Alpine 3.24). Stop before `jlink`.
 - [Scala CLI: Package](https://scala-cli.virtuslab.org/docs/commands/package/)
   `--power` is required. Assembly (`--assembly`, `--preamble=false` for `java -jar`); Docker (`--docker`, `--docker-from`, `--docker-image-repository`, `--docker-image-tag`). Stop before GraalVM native-image and OS packages.
+- [GitHub: Understanding GitHub Actions](https://docs.github.com/en/actions/get-started/understand-github-actions)
+  Primary wording for `scala-026`: workflow, event, job, step, action, runner. Stop before agentic workflows.
+- [GitHub: Workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)
+  `on` (colon required on bare events), `permissions` (`contents: read` vs `write-all`), `continue-on-error` (default fail closed). Stop before matrices, reusable workflows, and job containers as skills.
+- [GitHub: Use GITHUB_TOKEN](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token)
+  Least privilege for the workflow token. This unit only needs `contents: read`. SHA pinning of actions waits for `scala-027`.
+- [GitHub-hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+  `-latest` is GitHub’s latest stable image and they migrate it. This unit pins `ubuntu-24.04` (same Ubuntu 24.04 image as `ubuntu-latest` at teach time).
+- [actions/runner-images](https://github.com/actions/runner-images)
+  Specify an OS version to avoid an unplanned `-latest` migration. You cannot pin a particular weekly image rebuild.
+- [VirtusLab/scala-cli-setup](https://github.com/VirtusLab/scala-cli-setup)
+  Action used in this repo’s CI. Pin `@v1.16.0` and `scala-cli-version: "1.16.0"`. The README’s `@main` / `latest` examples are the anti-pattern for this unit.
+- [Configuring Dependabot version updates](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-version-updates)
+  Primary narrative: `version: 2`, per-ecosystem `updates`, `directory`, `schedule.interval`.
+- [Keeping your actions up to date with Dependabot](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/auto-update-actions)
+  `package-ecosystem: github-actions` with `directory: /` watches `.github/workflows`.
+- [Dependabot options reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference)
+  Ecosystem table: `docker`, `github-actions`, `sbt`. This lab is Scala CLI — do not set `sbt`. Scala `using dep` lines are not a Dependabot ecosystem.
+- [Scala CLI: Using directives](https://scala-cli.virtuslab.org/docs/guides/introduction/using-directives/)
+  `using dep` vs `using test.dep`. Prefer `project.scala` once configuration centralises. Stop before `using target` as a skill.
 
 ## Wisdom
 
@@ -220,7 +240,9 @@
 
 ## Gaps
 
-- Docker Compose, multi-container local stacks, and publishing images from CI wait until later production-engineering / capstone work (`scala-026` for CI; Compose is not a separate unit yet).
-- Non-root `USER`, baked-secret review, and image hardening wait for `scala-027`.
+- Docker Compose, multi-container local stacks, and publishing images from CI wait until later production-engineering / capstone work (Compose is not a separate unit yet).
+- Action SHA pinning, non-root `USER`, baked-secret review, and image hardening wait for `scala-027`.
+- Required status checks / branch protection are a GitHub repository setting, not a workflow YAML skill in `scala-026`.
+- Scala Steward (or Dependabot `sbt`) is out of scope while this lab’s pins live in Scala CLI `using` directives.
 - `HEALTHCHECK`, metrics, and tracing wait for `scala-028`.
 - Deployment platform will be selected only when the capstone reaches production-readiness work.

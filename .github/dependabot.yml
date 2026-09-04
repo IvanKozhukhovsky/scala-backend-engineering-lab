@@ -4,3 +4,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  - package-ecosystem: docker
+    directory: /packaging/quotes
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /packaging/desk
+    schedule:
+      interval: weekly

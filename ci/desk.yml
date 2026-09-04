@@ -1,36 +1,25 @@
-name: CI
+name: Desk
 
 on:
-  push:
-    branches: [main]
   pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  quality:
+  desk:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Cache Scala dependencies
-        uses: coursier/cache-action@v8
 
       - name: Set up Scala CLI
         uses: VirtusLab/scala-cli-setup@v1.16.0
         with:
           scala-cli-version: "1.16.0"
 
-      - name: Validate curriculum state
-        run: python3 scripts/progress.py check
-
       - name: Check formatting
         run: scala-cli fmt --check .
 
       - name: Run tests
-        run: scala-cli test .
+        run: scala-cli test . --test-only 'day26.ExercisesDay26Suite'
