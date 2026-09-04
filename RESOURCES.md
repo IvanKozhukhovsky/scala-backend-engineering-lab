@@ -196,6 +196,20 @@
   Docker Engine / Docker Desktop (or Testcontainers Cloud). Needed before `start()`.
 - [Docker: Replace H2 with a real database](https://docs.docker.com/guides/testcontainers-java-replace-h2/)
   Why an H2 suite does not prove Postgres dialect behaviour. Optional companion; keep H2 as the fast suite.
+- [Docker: What is an image?](https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-an-image/)
+  Primary wording for `scala-025`: an image is an immutable packaged filesystem (layers). Stop before registry publishing as a skill.
+- [Docker: What is a container?](https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/)
+  Isolated process started from an image; portable because the host need not have the toolchain. Postgres and the app are different containers.
+- [Docker: Writing a Dockerfile](https://docs.docker.com/get-started/docker-concepts/building-images/writing-a-dockerfile/)
+  Primary narrative: `FROM`, `WORKDIR`, `COPY`, `ENV`, `CMD`. Stop before multi-stage cache tricks, Gordon, and `USER` as skills (`scala-027`).
+- [Dockerfile reference: ENV](https://docs.docker.com/reference/dockerfile/#env)
+  `ENV` persists into the running container; `docker run --env` overrides. Do not bake secrets.
+- [Dockerfile reference: CMD](https://docs.docker.com/reference/dockerfile/#cmd)
+  Exec form is a JSON array. `CMD` does not run at build time. Prefer it over a shell wrapper so `java` is PID 1.
+- [eclipse-temurin Docker Official Image](https://hub.docker.com/_/eclipse-temurin)
+  `COPY` a JAR and `CMD ["java", "-jar", …]`. This unit pins `eclipse-temurin:21-jre-alpine-3.24` (JVM 21, JRE, Alpine 3.24). Stop before `jlink`.
+- [Scala CLI: Package](https://scala-cli.virtuslab.org/docs/commands/package/)
+  `--power` is required. Assembly (`--assembly`, `--preamble=false` for `java -jar`); Docker (`--docker`, `--docker-from`, `--docker-image-repository`, `--docker-image-tag`). Stop before GraalVM native-image and OS packages.
 
 ## Wisdom
 
@@ -206,5 +220,7 @@
 
 ## Gaps
 
-- Reusable Testcontainers, Docker Compose modules, and packaging the *application* image wait until the production-engineering phase (`scala-025`).
+- Docker Compose, multi-container local stacks, and publishing images from CI wait until later production-engineering / capstone work (`scala-026` for CI; Compose is not a separate unit yet).
+- Non-root `USER`, baked-secret review, and image hardening wait for `scala-027`.
+- `HEALTHCHECK`, metrics, and tracing wait for `scala-028`.
 - Deployment platform will be selected only when the capstone reaches production-readiness work.

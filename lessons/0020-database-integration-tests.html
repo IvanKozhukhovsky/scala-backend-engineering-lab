@@ -215,8 +215,9 @@ withQuotesPg { (url, user, password) =&gt;
         Hikari <code>postgresPool.use</code> is now a legal inner
         <code>Resource</code> — you finally have a live URL. Tests may
         still use DriverManager. Do not delete the H2 suites; they stay
-        the fast check. Docker packaging of the <em>app</em> is the next
-        phase, not this one.
+        the fast check. Packaging the <em>app</em> image is
+        <a href="0021-docker-and-reproducible-runtime-packaging.html">the next unit</a>
+        — a different image from <code>postgres:16-alpine</code>.
       </p>
 
       <div class="source-box" id="primary-source">
@@ -350,7 +351,8 @@ withQuotesPg { (url, user, password) =&gt;
           <a href="0019-schema-migrations-and-transactional-boundaries.html">Schema migrations and transactional boundaries</a>
           · Cheat sheet:
           <a href="../reference/db-integration.html">Database integration tests</a>
-          · Docker packaging of the app is the next phase — not this one.
+          · Next:
+          <a href="0021-docker-and-reproducible-runtime-packaging.html">Docker and reproducible runtime packaging</a>.
         </p>
       </footer>
     </div>

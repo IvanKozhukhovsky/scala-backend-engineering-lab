@@ -79,7 +79,7 @@ Transactor.fromDriverManager[IO](
         <li>Treat <code>jdbc:tc:</code> as the integration test — it hides start/stop; default stop-on-last-close fights <code>transact</code>.</li>
         <li>Point tests at a developer’s <code>localhost:5432</code>.</li>
         <li>Put Docker or JDBC inside <code>rateOf</code> / <code>convertAmount</code>.</li>
-        <li>Introduce JUnit 5, <code>testcontainers-scala</code>, Flyway <code>clean</code>, reusable containers, or app Dockerfiles (next phase).</li>
+        <li>Introduce JUnit 5, <code>testcontainers-scala</code>, Flyway <code>clean</code>, or reusable containers. App Dockerfiles are a different image — see <a href="docker-packaging.html">Docker packaging</a>.</li>
       </ul>
 
       <footer class="meta">

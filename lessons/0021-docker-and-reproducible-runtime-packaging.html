@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Docker and reproducible runtime packaging</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-025 · Phase 07 · Production Engineering</p>
+      <h1>Docker and reproducible runtime packaging</h1>
+      <p class="lede">
+        You can write a Dockerfile that turns a Scala assembly JAR into an
+        immutable image: a pinned JRE, the JAR, an <code>ENV</code> Ciris already
+        knows how to read, and an exec-form <code>CMD</code> — so a machine
+        without Scala CLI still runs the same process.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 24 already bought</a></li>
+          <li><a href="#image">Image, container, recipe</a></li>
+          <li><a href="#runtime">JRE plus JAR, not the laptop</a></li>
+          <li><a href="#package">scala-cli package, then docker run --env</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 15: <code>Resource.use</code> still runs release when the inner
+        <code>IO</code> fails.
+        Day 19: Ciris loads <code>env("…")</code> once; <code>rateOf</code>
+        never sees an env name.
+        Day 24: <code>postgres:16-alpine</code> is the image Testcontainers
+        starts; <code>start()</code> is the session; PID 1 in that container
+        is Postgres.
+        Before reading on: if the <em>quotes</em> process is what you want a
+        teammate to run, whose image is <code>postgres:16-alpine</code>?
+        If the Dockerfile says <code>COPY . .</code>, what from this
+        repository would land in the runtime?
+      </section>
+
+      <h2 id="image">Image, container, recipe</h2>
+      <p>
+        Docker’s own wording is the split. A
+        <a href="https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-an-image/">container image</a>
+        is a standardized package: files, binaries, libraries, configuration.
+        It is immutable. A
+        <a href="https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/">container</a>
+        is an isolated process started from that package — portable because
+        the process does not depend on what happens to be installed on the
+        host.<a class="sidenote-ref" href="#sn-img">1</a>
+      </p>
+      <aside class="sidenote" id="sn-img">
+        Day 24 already used this: Testcontainers pulled
+        <code>postgres:16-alpine</code> (image) and <code>start()</code>
+        ran a container. That image’s process is Postgres. This unit’s
+        image’s process is <em>ours</em>.
+      </aside>
+      <p>
+        A
+        <a href="https://docs.docker.com/get-started/docker-concepts/building-images/writing-a-dockerfile/">Dockerfile</a>
+        is the text recipe the builder reads: <code>FROM</code> the base
+        image, <code>WORKDIR</code>, <code>COPY</code> files in,
+        <code>ENV</code> for a running container,
+        <code>CMD</code> for the default command. The recipe is not a
+        running process. Building it produces an image. <code>docker run</code>
+        is the session.
+      </p>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>postgres:16-alpine
+pg.start()</code>
+    <span>Correct image for a catalog. Wrong PID 1 for the quotes service.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>quotes:0.1.0
+docker run --rm quotes:0.1.0</code>
+    <span>Our process. Postgres stays a different container when you need a database.</span>
+  </div>
+  <figcaption>One image, one kind of process. Do not stuff the database into the service image.</figcaption>
+</figure>
+
+      <h2 id="runtime">JRE plus JAR, not the laptop</h2>
+      <p>
+        This repository already pins JVM 21. The runtime image should too.
+        Eclipse Temurin’s official image shows the shape: copy a JAR, then
+        <code>CMD ["java", "-jar", …]</code>. We pin
+        <code>eclipse-temurin:21-jre-alpine-3.24</code> — Java 21, a JRE
+        (the process is not going to compile), Alpine 3.24 rather than a
+        floating <code>latest</code>.<a class="sidenote-ref" href="#sn-temurin">2</a>
+      </p>
+      <aside class="sidenote" id="sn-temurin">
+        Docker Official Image
+        <a href="https://hub.docker.com/_/eclipse-temurin"><code>eclipse-temurin</code></a>.
+        The Hub example uses <code>FROM eclipse-temurin:25</code>; this
+        repo is JVM 21, so the 21 JRE Alpine tag. A JDK image would ship
+        a compiler the runtime does not need. <code>jlink</code> custom
+        runtimes wait.
+      </aside>
+      <p>
+        <code>CMD</code> in
+        <a href="https://docs.docker.com/reference/dockerfile/#cmd">exec form</a>
+        is a JSON array. It does not start a shell. <code>java</code> is
+        PID 1. The
+        <a href="https://docs.docker.com/reference/dockerfile/#env"><code>ENV</code></a>
+        instruction persists into the running container; <code>docker run --env</code>
+        overrides it. Ciris already reads process env at the rim — the
+        Dockerfile does not call <code>rateOf</code>.
+      </p>
+<pre><code>FROM eclipse-temurin:21-jre-alpine-3.24
+WORKDIR /app
+COPY quotes.jar quotes.jar
+ENV QUOTES_CODE=EUR
+CMD ["java", "-jar", "quotes.jar"]</code></pre>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>FROM ubuntu:latest
+RUN apt-get install scala
+COPY . .
+ENV QUOTE_API_TOKEN=s3cret</code>
+    <span>Floating tag. Compiler on the runtime. Whole git tree. Secret in the image history.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>FROM eclipse-temurin:21-jre-alpine-3.24
+COPY quotes.jar quotes.jar
+ENV QUOTES_CODE=EUR
+CMD ["java", "-jar", "quotes.jar"]</code>
+    <span>Pinned JRE. One artifact. Config Ciris can override with <code>--env</code>.</span>
+  </div>
+  <figcaption>The recipe is the contract. Tests inspect this text; they do not have to build the image.</figcaption>
+</figure>
+      <p>
+        <code>RuntimeImage</code> in
+        <a href="../src/main/scala/day25/Day25.scala"><code>Day25.scala</code></a>
+        is that contract as data. <code>dockerfileOf</code> renders it.
+        Building the case class does not talk to Docker — the same
+        “description until the edge” split as <code>IO</code> and Flyway
+        <code>load</code>.
+      </p>
+
+      <h2 id="package">scala-cli package, then docker run --env</h2>
+      <p>
+        Scala CLI’s
+        <a href="https://scala-cli.virtuslab.org/docs/commands/package/"><code>package</code></a>
+        command is restricted: pass <code>--power</code> (or
+        <code>scala-cli config power true</code>). An
+        <em>assembly</em> is a fat JAR: your bytecode plus dependencies,
+        nothing downloaded at first launch. Default assemblies add a bash
+        preamble. <code>--preamble=false</code> leaves a JAR
+        <code>java -jar</code> can run — the form Temurin’s
+        <code>CMD</code> expects.
+      </p>
+<pre><code>scala-cli --power package . --assembly --preamble=false \
+  -o packaging/quotes/quotes.jar --main-class day25.Day25
+docker build -t quotes:0.1.0 packaging/quotes
+docker run --rm --env QUOTES_CODE=GBP quotes:0.1.0</code></pre>
+      <p>
+        This lab has many <code>IOApp</code> objects — <code>--main-class</code>
+        picks Day 25. <code>*.jar</code> is gitignored; the Dockerfile
+        still <code>COPY</code>s the name you produce next to it.
+        <code>package --docker --docker-from eclipse-temurin:21-jre-alpine-3.24
+        --docker-image-repository quotes</code> is the one-command path.
+        The default tag is <code>latest</code>; pass
+        <code>--docker-image-tag</code> if you use it. We keep a checked-in
+        Dockerfile so the recipe is reviewable without invoking Docker in
+        every test.
+      </p>
+      <p>
+        A whole-repo assembly still contains Day 24’s Testcontainers
+        (it is a compile dependency, not <code>test.dep</code>). The image
+        is reproducible; it is not yet slim. Splitting a service module
+        waits for the capstone. Do not install Scala CLI inside the
+        runtime to paper over that.
+      </p>
+      <p>
+        <code>loadQuotesPackConfig</code> is Ciris: <code>env("QUOTES_CODE")</code>
+        with a default of <code>EUR</code>. <code>centsFor</code> takes a
+        <code>PackConfig</code>. <code>rateOf</code> stays
+        <code>Map.get</code>. A token does not belong in
+        <code>ENV</code> — Day 19 already wrapped secrets;
+        <code>docker history</code> would print a baked token.
+        Compose, <code>USER</code>, health checks, and CI image builds
+        wait.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read Docker
+        <a href="https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-an-image/">What is an image?</a>
+        (immutable package; layers) and
+        <a href="https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/">What is a container?</a>
+        (isolated process; portable because the host need not have your
+        toolchain).
+        Read
+        <a href="https://docs.docker.com/get-started/docker-concepts/building-images/writing-a-dockerfile/">Writing a Dockerfile</a>
+        through the common instructions
+        (<code>FROM</code>, <code>WORKDIR</code>, <code>COPY</code>,
+        <code>ENV</code>, <code>CMD</code>). Stop before multi-stage
+        cache tricks, Gordon, and <code>USER</code> as skills.
+        Read the
+        <a href="https://docs.docker.com/reference/dockerfile/#env"><code>ENV</code></a>
+        and
+        <a href="https://docs.docker.com/reference/dockerfile/#cmd"><code>CMD</code></a>
+        reference: env persists; <code>docker run --env</code> overrides;
+        exec form is the JSON array; <code>CMD</code> does not run at
+        build time.
+        Skim
+        <a href="https://hub.docker.com/_/eclipse-temurin">eclipse-temurin</a>
+        “How to use this Image” (<code>COPY</code> a JAR,
+        <code>CMD ["java", "-jar", …]</code>). Pin
+        <code>21-jre-alpine-3.24</code> in this unit (JVM 21). Stop before
+        <code>jlink</code> as a skill.
+        Read Scala CLI
+        <a href="https://scala-cli.virtuslab.org/docs/commands/package/">Package</a>
+        through <em>Assemblies</em> (<code>--assembly</code>,
+        <code>--preamble=false</code>) and <em>Docker container</em>
+        (<code>--power</code>, <code>--docker</code>,
+        <code>--docker-image-repository</code>, <code>--docker-from</code>).
+        Stop before GraalVM native-image, Scala.js/Native images, and
+        OS-specific packages as skills.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Docker packaging retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A container image is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">immutable packaged file layers</button>
+            <button type="button">a currently running process</button>
+            <button type="button">Flyway SQL on classpath</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Docker: an image is the immutable package. A container is the isolated process started from it." data-bad="A running process is a container. Flyway files are on the classpath of the JAR, not a definition of an image."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Runtime FROM should pin:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">Temurin 21 JRE alpine</button>
+            <button type="button">Scala CLI plus JDK</button>
+            <button type="button">Postgres 16 alpine image</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="eclipse-temurin:21-jre-alpine-3.24 matches JVM 21. The runtime runs java -jar; it does not compile, and it is not Postgres." data-bad="Scala CLI belongs on the build machine. postgres:16-alpine is Day 24’s database process."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">QUOTES_CODE reaches Ciris via:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">ENV then docker --env</button>
+            <button type="button">token baked into FROM</button>
+            <button type="button">COPY the secrets file</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Dockerfile ENV persists; docker run --env overrides. Ciris reads process env. Do not put Secret values in the image." data-bad="FROM is the base image, not a place for tokens. COPY .env bakes secrets into a layer docker history can show."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">postgres:16-alpine in Day 24 is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">other image other process</button>
+            <button type="button">our service runtime jar</button>
+            <button type="button">the assembly bash preamble</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="That image’s PID 1 is Postgres. quotes:0.1.0 is a different image whose CMD is java -jar." data-bad="The assembly is the JAR you COPY. The bash preamble is what --preamble=false removes so java -jar works."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Tests inspect the recipe. They do not start Docker. Run the worked
+        example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day25.Day25Suite'</code></pre>
+      <p>
+        Optionally run the main — it loads <code>QUOTES_CODE</code> (default
+        <code>EUR</code>) and prints <code>Some(108)</code>:
+      </p>
+<pre><code>scala-cli run . --main-class day25.Day25</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>deskRuntime</code> in
+        <a href="../src/main/scala/day25/ExercisesDay25.scala"><code>ExercisesDay25.scala</code></a>
+        and write
+        <a href="../packaging/desk/Dockerfile"><code>packaging/desk/Dockerfile</code></a>
+        so the file equals <code>dockerfileOf(deskRuntime)</code> exactly.
+        The spec is
+        <a href="../src/test/scala/day25/ExercisesDay25Suite.test.scala"><code>ExercisesDay25Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        <code>repository</code> is <code>desk</code>, tag
+        <code>0.1.0</code>, the same Temurin 21 JRE Alpine base, workdir
+        <code>/app</code>, jar <code>desk.jar</code>,
+        <code>ENV DESK_CODE=GBP</code>, exec-form
+        <code>java -jar desk.jar</code>.
+        Do not alias <code>quotesRuntime</code>, do not
+        <code>FROM postgres</code>, do not <code>COPY .</code>, do not
+        install Scala CLI, do not bake a token, do not put Docker inside
+        <code>rateOf</code>.
+        Then run
+        <code>scala-cli test . --test-only 'day25.ExercisesDay25Suite'</code>
+        and <code>/review-exercise</code>.
+        Building the image with <code>docker build</code> is optional
+        after the tests are green — not required to finish the unit.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why is postgres:16-alpine the wrong FROM?”)
+        over “explain Docker again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0020-database-integration-tests.html">Database integration tests</a>
+          · Cheat sheet:
+          <a href="../reference/docker-packaging.html">Docker packaging</a>
+          · CI quality gates are the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

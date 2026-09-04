@@ -26,6 +26,7 @@ python3 scripts/progress.py show
 - Metals in Cursor
 - GitHub Actions
 - Docker Engine (required for `scala-024` Postgres integration tests via Testcontainers)
+- App image recipe under `packaging/quotes/` (`scala-025`; tests inspect the Dockerfile, they do not require `docker build`)
 
 The repository intentionally uses the Scala LTS line for a stable learning baseline. Version-sensitive ecosystem choices are revisited at the phase where they become relevant instead of being added prematurely.
 

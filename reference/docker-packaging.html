@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Docker packaging cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-025</p>
+      <h1>Docker and reproducible runtime packaging</h1>
+      <p class="lede">Image is the package. Container is the process. Dockerfile is the recipe: pinned JRE, JAR, ENV, exec-form CMD.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0021-docker-and-reproducible-runtime-packaging.html">Docker and reproducible runtime packaging</a>.
+        Docs:
+        <a href="https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-an-image/">image</a>,
+        <a href="https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/">container</a>,
+        <a href="https://docs.docker.com/get-started/docker-concepts/building-images/writing-a-dockerfile/">Dockerfile</a>,
+        <a href="https://scala-cli.virtuslab.org/docs/commands/package/">Scala CLI package</a>.
+        Base pin: <code>eclipse-temurin:21-jre-alpine-3.24</code>
+        (<a href="https://hub.docker.com/_/eclipse-temurin">eclipse-temurin</a>).
+      </p>
+
+      <h2>Layers</h2>
+      <ul>
+        <li>Dockerfile — text recipe. Not a running process.</li>
+        <li>Image — immutable package (<code>quotes:0.1.0</code>). Not <code>latest</code>.</li>
+        <li>Container — isolated process from that image (<code>docker run</code>).</li>
+        <li><code>postgres:16-alpine</code> — Day 24’s database process. Different image.</li>
+      </ul>
+
+      <h2>Recipe</h2>
+<pre><code>FROM eclipse-temurin:21-jre-alpine-3.24
+WORKDIR /app
+COPY quotes.jar quotes.jar
+ENV QUOTES_CODE=EUR
+CMD ["java", "-jar", "quotes.jar"]</code></pre>
+      <ul>
+        <li><code>ENV</code> persists; <code>docker run --env KEY=value</code> overrides. Ciris reads process env.</li>
+        <li>Exec-form <code>CMD</code> is a JSON array. It does not run at build time. <code>java</code> is PID 1.</li>
+        <li><code>dockerfileOf(runtime)</code> renders the same text. Tests compare; they need not <code>docker build</code>.</li>
+      </ul>
+
+      <h2>Build on the host</h2>
+<pre><code>scala-cli --power package . --assembly --preamble=false \
+  -o packaging/quotes/quotes.jar --main-class day25.Day25
+docker build -t quotes:0.1.0 packaging/quotes
+docker run --rm --env QUOTES_CODE=GBP quotes:0.1.0</code></pre>
+      <ul>
+        <li><code>--power</code> is required for <code>package</code>.</li>
+        <li><code>--preamble=false</code> so <code>java -jar</code> works without a bash header.</li>
+        <li>One-liner: <code>--docker --docker-from eclipse-temurin:21-jre-alpine-3.24 --docker-image-repository quotes</code> (default tag <code>latest</code> — prefer an explicit <code>--docker-image-tag</code>).</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Pin JVM 21 JRE. Keep <code>rateOf</code> as <code>Map.get</code>. Pass <code>PackConfig</code> in.</li>
+        <li>COPY only the assembly. Config via <code>ENV</code> / <code>--env</code>.</li>
+        <li>Keep Postgres in its own image when you need a catalog.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li><code>FROM postgres</code> for the service. <code>COPY . .</code>. Install Scala CLI in the runtime.</li>
+        <li>Bake tokens or <code>.env</code> files into layers. Use <code>latest</code> as the app tag.</li>
+        <li>Put Docker or env lookups inside <code>rateOf</code>.</li>
+        <li>Introduce Compose, <code>jlink</code>, GraalVM, <code>USER</code>, health checks, or CI image publishing (later units).</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="db-integration.html">Database integration tests</a>,
+          <a href="service-architecture.html">Configuration and logging</a>,
+          <a href="http-integration.html">HTTP integration testing</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

@@ -828,11 +828,32 @@
           "id": "scala-025",
           "sequence": 25,
           "title": "Docker and reproducible runtime packaging",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
-          "githubIssue": null
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0021-docker-and-reproducible-runtime-packaging.html"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day25/ExercisesDay25Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day25/ExercisesDay25.scala"
+            },
+            {
+              "type": "source",
+              "path": "packaging/desk/Dockerfile"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0020-env-is-not-a-cmd-argument.md"
+            }
+          ],
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/27"
         },
         {
           "id": "scala-026",
@@ -842,7 +863,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/28"
         },
         {
           "id": "scala-027",
@@ -852,7 +873,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/30"
         },
         {
           "id": "scala-028",
@@ -862,7 +883,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/29"
         }
       ]
     },
