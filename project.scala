@@ -11,13 +11,13 @@
 //> using dep "org.http4s::http4s-dsl::0.23.36"
 //> using dep "org.http4s::http4s-circe::0.23.36"
 // Ember: native server/client from Quick Start / Service / Client at scala-020. Same 0.23.36 pin.
-// Tests bind 127.0.0.1 and port 0 (OS picks a free port). slf4j / logback still wait.
+// Tests bind 127.0.0.1 and port 0 (OS picks a free port). slf4j / logback still wait (capstone).
 //> using dep "org.http4s::http4s-ember-server::0.23.36"
 //> using dep "org.http4s::http4s-ember-client::0.23.36"
 // Ciris: typed env/prop loading from Configurations at scala-019 teach time. No YAML/AWS modules.
 //> using dep "is.cir::ciris::3.15.0"
 // log4cats: CE3 logging algebra. 2.7.1 tracks cats-effect 3.6.x (2.8.0 wants CE 3.7).
-// NoOpLogger lives in core since 2.7.0. slf4j / logback wait until the observability unit.
+// NoOpLogger lives in core since 2.7.0. slf4j / logback wait (capstone). scala-028 joins logs with trace_id on the existing ctx map.
 //> using dep "org.typelevel::log4cats-core::2.7.1"
 // doobie: functional JDBC. Homepage pin at scala-021 teach time: 1.0.0-RC13,
 // org.typelevel (not org.tpolecat), package org.typelevel.doobie.

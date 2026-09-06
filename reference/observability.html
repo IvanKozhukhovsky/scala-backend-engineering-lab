@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Observability cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-028</p>
+      <h1>Metrics, logs, tracing and health checks</h1>
+      <p class="lede">Logs say what happened. Metrics say how many. Traces join one request. HEALTHCHECK asks yes or no now.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0024-metrics-logs-tracing-and-health-checks.html">Metrics, logs, tracing and health checks</a>.
+        Docs:
+        <a href="https://opentelemetry.io/docs/what-is-opentelemetry/">What is observability</a>,
+        <a href="https://opentelemetry.io/docs/concepts/signals/">signals</a>,
+        <a href="https://prometheus.io/docs/concepts/metric_types/#counter">counter</a>,
+        <a href="https://prometheus.io/docs/instrumenting/exposition_formats/">exposition</a>,
+        <a href="https://prometheus.io/docs/practices/naming/">naming</a>,
+        <a href="https://docs.docker.com/reference/dockerfile/#healthcheck">HEALTHCHECK</a>,
+        <a href="https://www.w3.org/TR/trace-context/#trace-id">W3C trace-id</a>.
+      </p>
+
+      <h2>Signals</h2>
+      <ul>
+        <li>Log — Day 19 <code>StructuredLogger</code> <code>ctx</code> plus <code>trace_id</code>.</li>
+        <li>Metric — Prometheus counter, scraped as text. Suffix <code>_total</code>.</li>
+        <li>Trace — 32 lowercase hex; all zeroes invalid; carried on <code>traceparent</code>.</li>
+        <li>Health — <code>GET /health</code> (Day 19) probed by Docker <code>HEALTHCHECK</code>.</li>
+      </ul>
+
+      <h2>Scrape</h2>
+<pre><code># HELP quotes_http_requests_total HTTP requests
+# TYPE quotes_http_requests_total counter
+quotes_http_requests_total{code="200"} 0</code></pre>
+      <ul>
+        <li>Counter: only increases, or resets on restart. Gauge can go down — not this unit.</li>
+        <li><code>bump</code> at the HTTP rim. <code>rateOf</code> stays <code>Map.get</code>.</li>
+        <li>Tests compare <code>scrapeOf</code>; they need not run Prometheus.</li>
+      </ul>
+
+      <h2>Join key</h2>
+<pre><code>00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+logCtx(traceId, "EUR", "get_rate")</code></pre>
+      <ul>
+        <li><code>traceIdFromParent</code> reads field two. Do not log <code>Secret.value</code>.</li>
+      </ul>
+
+      <h2>Probe</h2>
+<pre><code>USER 1000
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD ["wget", "-qO-", "http://127.0.0.1:8080/health"]
+CMD ["java", "-jar", "quotes.jar"]</code></pre>
+      <ul>
+        <li>The command runs <em>inside</em> the container. Exit 0 healthy, 1 unhealthy, 2 reserved.</li>
+        <li>BusyBox <code>wget</code> on this Alpine pin. Loopback, not <code>localhost</code>. Not <code>/metrics</code>.</li>
+        <li><code>observedDockerfileOf</code> renders the twin. Day 27 <code>hardened.Dockerfile</code> stays the contract.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Keep <code>contents: read</code>, <code>USER 1000</code>, parameterized SQL, Ciris <code>Secret</code> at the rim.</li>
+        <li>Prefix the counter with the app name. Put <code>trace_id</code> in the log map.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Increment or log inside <code>rateOf</code> / <code>convertAmount</code>.</li>
+        <li><code>HEALTHCHECK</code> <code>/metrics</code>, <code>curl</code>, or <code>localhost</code> as the host.</li>
+        <li>Introduce otel4s, a Prometheus server, Grafana, Jaeger, slf4j/logback, Kubernetes probes, histograms, or Compose <code>healthcheck:</code>.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="security-basics.html">Security basics</a>,
+          <a href="docker-packaging.html">Docker packaging</a>,
+          <a href="service-architecture.html">Configuration and logging</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

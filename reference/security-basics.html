@@ -69,7 +69,7 @@ CMD ["java", "-jar", "quotes.jar"]</code></pre>
         <li><code>USER 0</code>. Debian <code>useradd</code> on this Alpine base.</li>
         <li>Bake <code>token</code> / <code>password</code> / <code>Secret</code> / <code>.env</code> into a layer.</li>
         <li>Change Day 25 / Day 26 contract files to make this unit pass.</li>
-        <li>Introduce CodeQL, Scorecards, <code>sha_pinning_required</code>, capabilities, distroless, or health checks (later / other units).</li>
+        <li>Introduce CodeQL, Scorecards, <code>sha_pinning_required</code>, capabilities, or distroless. Health checks are <a href="observability.html">scala-028</a>.</li>
       </ul>
 
       <footer class="meta">
@@ -78,6 +78,8 @@ CMD ["java", "-jar", "quotes.jar"]</code></pre>
           <a href="ci-quality-gates.html">CI quality gates</a>,
           <a href="docker-packaging.html">Docker packaging</a>,
           <a href="service-architecture.html">Configuration and logging</a>.
+          Next:
+          <a href="observability.html">Observability</a>.
         </p>
       </footer>
     </div>

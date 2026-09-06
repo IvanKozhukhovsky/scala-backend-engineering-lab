@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Metrics, logs, tracing and health checks</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-028 · Phase 07 · Production Engineering</p>
+      <h1>Metrics, logs, tracing and health checks</h1>
+      <p class="lede">
+        You can tell which signal answers which question, scrape a Prometheus
+        counter, join a log line to a request with a W3C
+        <code>trace_id</code>, and write a Docker <code>HEALTHCHECK</code>
+        that probes <code>GET /health</code> — without putting any of that
+        inside <code>rateOf</code>.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Days 19–27 already bought</a></li>
+          <li><a href="#signals">Three signals, one question each</a></li>
+          <li><a href="#metrics">A counter is a scrape, not a log</a></li>
+          <li><a href="#trace">The id in the header is the join key</a></li>
+          <li><a href="#health">HEALTHCHECK runs inside the container</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 19: <code>logger.info(Map("code" -&gt; code, "op" -&gt; "get_rate"))("ok")</code>
+        at the HTTP rim; <code>GET /health</code> returns
+        <code>HealthOut</code>. <code>convertAmount</code> stays pure.
+        Day 20: tests bind <code>127.0.0.1</code>, not
+        <code>0.0.0.0</code>.
+        Day 25: a Dockerfile is a recipe; building the case class does not
+        talk to Docker.
+        Day 27: default without <code>USER</code> is root;
+        <code>USER 1000</code> is the process uid.
+        Before reading on: if <code>rateOf</code> incremented a request
+        counter, what would a unit test of <code>Map.get</code> have to own?
+        If PID 1 is still <code>java</code> but HTTP is stuck, what does
+        Docker know without a <code>HEALTHCHECK</code>?
+      </section>
+
+      <h2 id="signals">Three signals, one question each</h2>
+      <p>
+        OpenTelemetry’s wording:
+        <a href="https://opentelemetry.io/docs/what-is-opentelemetry/">observability</a>
+        is the ability to understand the internal state of a system by
+        examining its outputs. In software those outputs are telemetry:
+        traces, metrics, and logs. OpenTelemetry is a way to
+        <em>generate and export</em> that data. It is not the dashboard.
+        Jaeger and Prometheus are backends; this unit does not install
+        them.<a class="sidenote-ref" href="#sn-otel">1</a>
+      </p>
+      <aside class="sidenote" id="sn-otel">
+        <a href="https://opentelemetry.io/docs/concepts/signals/">Signals</a>:
+        a trace is the path of a request; a metric is a measurement
+        captured at runtime; a log is a recording of an event. Profiles
+        and baggage wait.
+      </aside>
+<figure class="trio">
+  <div class="pair-box ok">
+    <code>logs</code>
+    <span>What happened on this request? Day 19’s <code>ctx</code> map.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>metrics</code>
+    <span>How many, how fast, over time? A counter you scrape.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>traces</code>
+    <span>Which hops belong to one request? The same <code>trace_id</code>.</span>
+  </div>
+  <figcaption>OpenTelemetry: three signals. A health probe is a yes/no now — not a fourth backend.</figcaption>
+</figure>
+      <p>
+        A health check answers a different question: can you serve
+        <em>right now</em>? Day 19 already has <code>GET /health</code>.
+        This unit adds the orchestrator’s recipe that calls it.
+        <code>rateOf</code> still does not know about any of this.
+      </p>
+
+      <h2 id="metrics">A counter is a scrape, not a log</h2>
+      <p>
+        Prometheus
+        <a href="https://prometheus.io/docs/concepts/metric_types/#counter">counters</a>
+        only increase, or reset to zero on restart. Request counts and
+        error counts are counters. Concurrent requests and memory are
+        gauges — they go down. Do not use a counter for a value that can
+        decrease. Histograms wait.<a class="sidenote-ref" href="#sn-total">2</a>
+      </p>
+      <aside class="sidenote" id="sn-total">
+        <a href="https://prometheus.io/docs/practices/naming/">Naming</a>:
+        an accumulating count SHOULD end with <code>_total</code>, with
+        an application prefix:
+        <code>quotes_http_requests_total</code>. Do not put user ids on
+        labels — each combination is a new time series.
+      </aside>
+      <p>
+        The wire contract is the
+        <a href="https://prometheus.io/docs/instrumenting/exposition_formats/">text exposition</a>:
+        UTF-8 lines, <code># HELP</code> / <code># TYPE</code> before
+        samples, a trailing newline. Prometheus
+        <em>scrapes</em> that text (usually <code>GET /metrics</code>).
+        Building <code>scrapeOf</code> does not talk to a Prometheus
+        server. A client library can emit the same bytes later; you
+        should be able to read them first.
+      </p>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>def rateOf(code: String) =
+  counter += 1
+  rates.get(code)</code>
+    <span>The test of absence now owns a global count.</span>
+  </div>
+  <div class="pair-box ok">
+    <code># TYPE quotes_http_requests_total counter
+quotes_http_requests_total{code="200"} 12</code>
+    <span><code>bump</code> at the HTTP rim. <code>rateOf</code> stays <code>Map.get</code>.</span>
+  </div>
+  <figcaption>Prometheus: HELP and TYPE first; then name, labels, value.</figcaption>
+</figure>
+      <p>
+        <code>quotesRequests</code> in
+        <a href="../src/main/scala/day28/Day28.scala"><code>Day28.scala</code></a>
+        starts at <code>0</code>. <code>bump</code> adds one.
+        <code>scrapeOf</code> is the text a scraper would fetch.
+      </p>
+
+      <h2 id="trace">The id in the header is the join key</h2>
+      <p>
+        OpenTelemetry
+        <a href="https://opentelemetry.io/docs/concepts/signals/traces/">traces</a>
+        are the path of a request: spans that share a
+        <code>trace_id</code>, with parent ids for hierarchy. You do not
+        need Jaeger to learn the join key. W3C
+        <a href="https://www.w3.org/TR/trace-context/#trace-id">Trace Context</a>
+        carries it on the <code>traceparent</code> header:
+        <code>00-&lt;trace-id&gt;-&lt;parent-id&gt;-&lt;flags&gt;</code>.
+        The trace-id is 16 bytes, written as 32 lowercase hex
+        characters. All zeroes is invalid.<a class="sidenote-ref" href="#sn-ctx">3</a>
+      </p>
+      <aside class="sidenote" id="sn-ctx">
+        OpenTelemetry’s default propagator is this header. Day 19
+        already logs a <code>Map</code>. Put
+        <code>trace_id</code> in that map so a log line can join the
+        request. Do not unwrap a Ciris <code>Secret</code> into it.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>logger.info(s"EUR ok")</code>
+    <span>A string you cannot join to the next hop.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>logCtx(traceId, "EUR", "get_rate")
+// trace_id, code, op</code>
+    <span>Same keys as Day 19, plus the W3C id.</span>
+  </div>
+  <figcaption>W3C example id: <code>4bf92f3577b34da6a3ce929d0e0e4736</code>.</figcaption>
+</figure>
+      <p>
+        <code>traceIdFromParent</code> reads the second field.
+        <code>isTraceId</code> is the same shape of check as Day 27’s
+        <code>isFullSha</code> — length and alphabet — with all zeroes
+        forbidden. A Collector, an SDK, and span export wait.
+      </p>
+
+      <h2 id="health">HEALTHCHECK runs inside the container</h2>
+      <p>
+        Docker’s
+        <a href="https://docs.docker.com/reference/dockerfile/#healthcheck"><code>HEALTHCHECK</code></a>
+        instruction tells Docker how to test that a container is still
+        working — including the case where the server process is alive
+        but cannot handle new connections. The command runs
+        <em>inside</em> the container. Exit <code>0</code> is healthy;
+        <code>1</code> is unhealthy; <code>2</code> is reserved. Status
+        starts as <code>starting</code>, then
+        <code>healthy</code> / <code>unhealthy</code> after consecutive
+        failures (<code>--retries</code>, default 3).<a class="sidenote-ref" href="#sn-hc">4</a>
+      </p>
+      <aside class="sidenote" id="sn-hc">
+        Options you pin: <code>--interval=30s</code> (the default),
+        <code>--timeout=3s</code> (the docs’ example timeout),
+        <code>--retries=3</code>. There can be only one
+        <code>HEALTHCHECK</code>; the last one wins.
+        <code>HEALTHCHECK NONE</code> disables an inherited check.
+      </aside>
+      <p>
+        The probe hits Day 19’s <code>/health</code> on loopback, not
+        <code>/metrics</code> and not <code>localhost</code> as a
+        hostname you have not proven. Alpine’s BusyBox
+        <code>wget</code> is already in
+        <code>eclipse-temurin:21-jre-alpine-3.24</code> — do not
+        <code>apk add curl</code> for this unit. Exec form matches Day
+        25: a JSON array, so the probe is not a shell wrapper.
+        Kubernetes <code>httpGet</code> probes run from the kubelet, not
+        from a binary in the image; they wait.
+      </p>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>HEALTHCHECK CMD curl -f \
+  http://localhost/metrics</code>
+    <span>curl is not on this Alpine pin. /metrics is a scrape, not a yes/no probe.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD ["wget", "-qO-", \
+  "http://127.0.0.1:8080/health"]</code>
+    <span>Inside the container, as uid 1000. Exit status is the health.</span>
+  </div>
+  <figcaption>Docker: the check is a command in the container, not a process on the daemon host.</figcaption>
+</figure>
+      <p>
+        <code>observedDockerfileOf</code> splices that line into Day
+        27’s hardened recipe, still before exec-form
+        <code>CMD</code>.
+        <code>packaging/quotes/hardened.Dockerfile</code> stays the Day
+        27 contract.
+        <code>packaging/quotes/observed.Dockerfile</code> is the twin.
+        Tests compare text; they do not <code>docker build</code> or
+        wait for a scrape.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read OpenTelemetry
+        <a href="https://opentelemetry.io/docs/what-is-opentelemetry/">What is OpenTelemetry?</a>
+        through “What is observability?”, then
+        <a href="https://opentelemetry.io/docs/concepts/signals/">Signals</a>
+        (traces / metrics / logs only).
+        Read Prometheus
+        <a href="https://prometheus.io/docs/concepts/metric_types/#counter">Counter</a>
+        and one
+        <a href="https://prometheus.io/docs/instrumenting/exposition_formats/#prometheus-text-format">text-format</a>
+        example through the <code>http_requests_total</code> lines.
+        Skim
+        <a href="https://prometheus.io/docs/practices/naming/">metric names</a>
+        for the <code>_total</code> suffix.
+        Read Docker
+        <a href="https://docs.docker.com/reference/dockerfile/#healthcheck"><code>HEALTHCHECK</code></a>
+        through the exit-status list and the <code>curl</code> example
+        (this unit uses BusyBox <code>wget</code> instead).
+        Read W3C
+        <a href="https://www.w3.org/TR/trace-context/#trace-id">trace-id</a>
+        (32 hex, all zeroes invalid).
+        Stop before Collectors, Jaeger, PromQL, histograms, Kubernetes
+        probes, slf4j/logback, and otel4s as skills.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Observability retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A trace records:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">one request's causal path</button>
+            <button type="button">one running request total</button>
+            <button type="button">one in-container wget probe</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="OpenTelemetry: a trace is the path of a request. Spans share a trace_id. A counter is how many; HEALTHCHECK is yes/no now." data-bad="A _total counter is a metric. wget /health is the Docker probe, not a trace."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A Prometheus counter:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">only increases or resets</button>
+            <button type="button">falls when load drops</button>
+            <button type="button">replaces the health probe</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Prometheus: a counter only increases, or resets to zero on restart. A gauge can go down. /health stays the probe." data-bad="Values that go down are gauges. HEALTHCHECK still hits /health, not the scrape text."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">HEALTHCHECK CMD runs:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">inside the running container</button>
+            <button type="button">on the Docker host</button>
+            <button type="button">inside rateOf Map.get</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Docker: the check is a command inside the container. Exit 0 is healthy. rateOf stays Map.get." data-bad="The daemon schedules the check; the binary still runs in the container. The core does not own probes."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A W3C trace-id is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">thirty-two lowercase hex digits</button>
+            <button type="button">a movable version tag</button>
+            <button type="button">all zeroes padded identifier</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="W3C: 16 bytes as 32 lowercase hex. All zeroes is invalid. Put that id in the Day 19 log ctx." data-bad="A tag that moves was Day 27’s anti-pattern. All-zero trace-ids MUST be ignored."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Tests inspect the recipe and the scrape text. They do not start
+        Docker, Prometheus, or a collector. Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day28.Day28Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>deskObserved</code> and <code>deskRequests</code>
+        in
+        <a href="../src/main/scala/day28/ExercisesDay28.scala"><code>ExercisesDay28.scala</code></a>.
+        Write
+        <a href="../packaging/desk/observed.Dockerfile"><code>packaging/desk/observed.Dockerfile</code></a>
+        so the file equals
+        <code>observedDockerfileOf(deskObserved)</code> exactly.
+        The spec is
+        <a href="../src/test/scala/day28/ExercisesDay28Suite.test.scala"><code>ExercisesDay28Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        Reuse <code>deskHardened</code>. You may reuse
+        <code>quotesProbe</code>. Do not alias
+        <code>quotesObserved</code> or <code>quotesRequests</code>.
+        Name the counter <code>desk_http_requests_total</code>.
+        Do not probe <code>/metrics</code>, do not use
+        <code>localhost</code>, do not leave uid 0, do not bake a token,
+        do not change
+        <code>packaging/desk/Dockerfile</code> or
+        <code>packaging/desk/hardened.Dockerfile</code> — those are Day
+        25 / Day 27 contracts.
+        Then run
+        <code>scala-cli test . --test-only 'day28.ExercisesDay28Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why isn’t /metrics the health probe?”)
+        over “explain observability again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0023-security-basics-for-backend-services.html">Security basics for backend services</a>
+          · Cheat sheet:
+          <a href="../reference/observability.html">Metrics, logs, tracing, health</a>
+          · Capstone architecture is the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

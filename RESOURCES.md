@@ -137,13 +137,13 @@
 - [Ciris API: Secret](https://cir.is/api/ciris/Secret.html)
   Authoritative wording: `toString` is a short SHA-1 prefix; `value` unwraps the secret. Reused as retrieval in `scala-027` (do not bake `.value` into `ENV` / `COPY .env`).
 - [log4cats](https://github.com/typelevel/log4cats)
-  Primary narrative for referentially transparent logging. This repo pins `log4cats-core` `2.7.1` (cats-effect 3.6 line; `2.8.0` depends on CE 3.7). Stop before slf4j, LoggerFactory, and interpolated syntax as skills.
+  Primary narrative for referentially transparent logging. This repo pins `log4cats-core` `2.7.1` (cats-effect 3.6 line; `2.8.0` depends on CE 3.7). `scala-028` adds `trace_id` to the existing `ctx` map. Stop before slf4j, LoggerFactory, and interpolated syntax as skills.
 - [log4cats-testing](https://github.com/typelevel/log4cats/blob/main/testing/README.md)
   `StructuredTestingLogger` for asserting on message plus `ctx` map. This unit does not require `munit-cats-effect`.
 - [http4s: Server Middleware](https://http4s.org/v0.23/docs/server-middleware.html)
   Lists `Logger` / `RequestLogger` as string dumps of headers and bodies. Out of scope for `scala-019` — full bodies can be huge; structured `ctx` maps are the skill.
 - [http4s: HTTP Client](https://http4s.org/v0.23/docs/client.html)
-  Primary narrative for `scala-020`: `EmberClientBuilder.build` is a `Resource`, `expect` decodes 2xx, `Client.run` returns `Resource[F, Response[F]]`. Stop before JavaNetClientBuilder as a skill, client middleware, and metrics.
+  Primary narrative for `scala-020`: `EmberClientBuilder.build` is a `Resource`, `expect` decodes 2xx, `Client.run` returns `Resource[F, Response[F]]`. Stop before JavaNetClientBuilder as a skill, client middleware, and metrics as a library. Metrics as Prometheus text are `scala-028`.
 - [http4s API: Client.fromHttpApp](https://http4s.org/v0.23/api/org/http4s/client/Client$.html)
   In-process client from an `HttpApp`. Useful as a fake; it is not a socket integration test.
 - [http4s API: Server.baseUri](https://http4s.org/v0.23/api/org/http4s/server/Server.html)
@@ -240,6 +240,22 @@
   `USER <user>[:<group>]` or `USER <UID>[:<GID>]`. Sets the user for later `RUN` and for runtime `CMD` / `ENTRYPOINT`. Default without `USER` is root.
 - [Docker Engine security](https://docs.docker.com/engine/security/)
   Closing note: containers are quite secure especially if processes run as non-privileged users. Stop before capabilities, user namespaces, seccomp, AppArmor, and Content Trust as skills.
+- [OpenTelemetry: What is OpenTelemetry?](https://opentelemetry.io/docs/what-is-opentelemetry/)
+  Primary wording for `scala-028`: observability is understanding internal state from outputs (traces, metrics, logs). OpenTelemetry generates and exports telemetry; it is not a backend. Stop before Collector, Operator, and language SDKs as skills.
+- [OpenTelemetry: Signals](https://opentelemetry.io/docs/concepts/signals/)
+  Trace = path of a request; metric = measurement at runtime; log = recording of an event. Stop before baggage, profiles, and events as skills.
+- [OpenTelemetry: Traces](https://opentelemetry.io/docs/concepts/signals/traces/)
+  Spans share a `trace_id`; parent ids make a hierarchy. Stop before TracerProvider, exporters, and span kinds as skills.
+- [Prometheus: Metric types — Counter](https://prometheus.io/docs/concepts/metric_types/#counter)
+  A counter only increases, or resets to zero on restart. Do not use it for a value that can decrease (that is a gauge). Stop before histograms and summaries.
+- [Prometheus: Exposition formats](https://prometheus.io/docs/instrumenting/exposition_formats/)
+  Primary scrape contract: UTF-8 text, `# HELP` / `# TYPE` before samples, trailing newline. HTTP `Content-Type` `text/plain`. Stop before OpenMetrics `# EOF`, protobuf, and exemplars.
+- [Prometheus: Metric and label naming](https://prometheus.io/docs/practices/naming/)
+  Application prefix; accumulating counts SHOULD end with `_total`. High-cardinality labels (user ids) create a new time series each.
+- [Dockerfile reference: HEALTHCHECK](https://docs.docker.com/reference/dockerfile/#healthcheck)
+  Primary narrative: the command runs inside the container; exit 0 healthy, 1 unhealthy, 2 reserved; `--interval` / `--timeout` / `--retries`; only the last `HEALTHCHECK` wins. This unit pins BusyBox `wget` on Alpine, not the docs’ `curl` example.
+- [W3C Trace Context: trace-id](https://www.w3.org/TR/trace-context/#trace-id)
+  16-byte identifier as 32 lowercase hex. All zeroes is invalid. Header shape `version-trace-id-parent-id-trace-flags`. Stop before `tracestate` and random-flag generation as skills.
 
 ## Wisdom
 
@@ -255,5 +271,5 @@
 - `sha_pinning_required` (require SHA pins in the GitHub Actions policy UI) is the same kind of setting — `scala-027` writes the pins in YAML.
 - CodeQL, OpenSSF Scorecards, distroless / read-only rootfs / dropped capabilities, and Cosign wait for later hardening if the capstone needs them.
 - Scala Steward (or Dependabot `sbt`) is out of scope while this lab’s pins live in Scala CLI `using` directives.
-- `HEALTHCHECK`, metrics, and tracing wait for `scala-028`.
+- slf4j / logback as a `StructuredLogger` backend, otel4s, a live Prometheus scrape, Grafana, Jaeger, Kubernetes `httpGet` probes, histograms, and Compose `healthcheck:` wait for capstone / later hardening.
 - Deployment platform will be selected only when the capstone reaches production-readiness work.

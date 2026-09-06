@@ -186,8 +186,9 @@ docker run --rm --env QUOTES_CODE=GBP quotes:0.1.0</code></pre>
         <code>Map.get</code>. A token does not belong in
         <code>ENV</code> — Day 19 already wrapped secrets;
         <code>docker history</code> would print a baked token.
-        Compose, <code>USER</code>, health checks, and CI image builds
-        wait.
+        Compose and CI image builds wait.
+        <code>USER</code> is <a href="0023-security-basics-for-backend-services.html">scala-027</a>;
+        health checks are <a href="0024-metrics-logs-tracing-and-health-checks.html">scala-028</a>.
       </p>
 
       <div class="source-box" id="primary-source">

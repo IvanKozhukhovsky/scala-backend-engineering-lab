@@ -29,6 +29,7 @@ python3 scripts/progress.py show
 - Docker Engine (required for `scala-024` Postgres integration tests via Testcontainers)
 - App image recipe under `packaging/quotes/` (`scala-025`; tests inspect the Dockerfile, they do not require `docker build`)
 - Hardened twins: SHA-pinned Actions (`ci/quotes-pinned.yml`) and non-root `USER` (`packaging/quotes/hardened.Dockerfile`) (`scala-027`; tests inspect the recipes)
+- Observability twin: `HEALTHCHECK` plus Prometheus counter text (`packaging/quotes/observed.Dockerfile`) (`scala-028`; tests inspect the recipe and scrape text, they do not start Prometheus or Docker)
 
 The repository intentionally uses the Scala LTS line for a stable learning baseline. Version-sensitive ecosystem choices are revisited at the phase where they become relevant instead of being added prematurely.
 

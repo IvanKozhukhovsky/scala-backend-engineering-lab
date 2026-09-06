@@ -71,7 +71,7 @@ missing.attempt[IO]  // Either, for tests</code></pre>
       <ul>
         <li>Call <code>sys.env</code> or <code>logger.info</code> inside <code>convertAmount</code>.</li>
         <li>Put <code>Secret.value</code> in a log <code>ctx</code> or a JSON body.</li>
-        <li>Introduce Ember, slf4j/logback, http4s <code>Logger</code> middleware, metrics, or tracing in this unit.</li>
+        <li>Introduce Ember, slf4j/logback, or http4s <code>Logger</code> middleware in this unit. Metrics and tracing are <a href="observability.html">scala-028</a>.</li>
       </ul>
 
       <footer class="meta">

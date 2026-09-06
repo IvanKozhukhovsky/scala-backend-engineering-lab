@@ -913,10 +913,27 @@
           "id": "scala-028",
           "sequence": 28,
           "title": "Metrics, logs, tracing and health checks",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0024-metrics-logs-tracing-and-health-checks.html"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day28/ExercisesDay28Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day28/ExercisesDay28.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0023-rateof-does-not-bump-the-counter.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/29"
         }
       ]
