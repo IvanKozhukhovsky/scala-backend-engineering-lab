@@ -135,7 +135,7 @@
 - [Ciris: Configurations](https://cir.is/docs/configurations)
   Primary narrative for `scala-019`: `ConfigValue`, `env` / `prop` / `or`, `as`, `default`, `secret`, `parMapN`, `load`. Stop before Alternatives, custom sources, and AWS/YAML modules.
 - [Ciris API: Secret](https://cir.is/api/ciris/Secret.html)
-  Authoritative wording: `toString` is a short SHA-1 prefix; `value` unwraps the secret.
+  Authoritative wording: `toString` is a short SHA-1 prefix; `value` unwraps the secret. Reused as retrieval in `scala-027` (do not bake `.value` into `ENV` / `COPY .env`).
 - [log4cats](https://github.com/typelevel/log4cats)
   Primary narrative for referentially transparent logging. This repo pins `log4cats-core` `2.7.1` (cats-effect 3.6 line; `2.8.0` depends on CE 3.7). Stop before slf4j, LoggerFactory, and interpolated syntax as skills.
 - [log4cats-testing](https://github.com/typelevel/log4cats/blob/main/testing/README.md)
@@ -201,7 +201,7 @@
 - [Docker: What is a container?](https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/)
   Isolated process started from an image; portable because the host need not have the toolchain. Postgres and the app are different containers.
 - [Docker: Writing a Dockerfile](https://docs.docker.com/get-started/docker-concepts/building-images/writing-a-dockerfile/)
-  Primary narrative: `FROM`, `WORKDIR`, `COPY`, `ENV`, `CMD`. Stop before multi-stage cache tricks, Gordon, and `USER` as skills (`scala-027`).
+  Primary narrative: `FROM`, `WORKDIR`, `COPY`, `ENV`, `CMD`. Stop before multi-stage cache tricks, Gordon, and `USER` as skills — `USER` is `scala-027`.
 - [Dockerfile reference: ENV](https://docs.docker.com/reference/dockerfile/#env)
   `ENV` persists into the running container; `docker run --env` overrides. Do not bake secrets.
 - [Dockerfile reference: CMD](https://docs.docker.com/reference/dockerfile/#cmd)
@@ -215,7 +215,7 @@
 - [GitHub: Workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)
   `on` (colon required on bare events), `permissions` (`contents: read` vs `write-all`), `continue-on-error` (default fail closed). Stop before matrices, reusable workflows, and job containers as skills.
 - [GitHub: Use GITHUB_TOKEN](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token)
-  Least privilege for the workflow token. This unit only needs `contents: read`. SHA pinning of actions waits for `scala-027`.
+  Least privilege for the workflow token. `scala-026` only needs `contents: read`. SHA pinning of `uses:` is `scala-027`.
 - [GitHub-hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
   `-latest` is GitHub’s latest stable image and they migrate it. This unit pins `ubuntu-24.04` (same Ubuntu 24.04 image as `ubuntu-latest` at teach time).
 - [actions/runner-images](https://github.com/actions/runner-images)
@@ -230,6 +230,16 @@
   Ecosystem table: `docker`, `github-actions`, `sbt`. This lab is Scala CLI — do not set `sbt`. Scala `using dep` lines are not a Dependabot ecosystem.
 - [Scala CLI: Using directives](https://scala-cli.virtuslab.org/docs/guides/introduction/using-directives/)
   `using dep` vs `using test.dep`. Prefer `project.scala` once configuration centralises. Stop before `using target` as a skill.
+- [GitHub: Security hardening for GitHub Actions](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions)
+  Primary wording for `scala-027`: pin third-party actions to a full-length commit SHA (immutable release); a tag can be moved or deleted. Stop before CodeQL, OpenSSF Scorecards, and `pull_request_target` as skills.
+- [GitHub: Find and customize actions — Using SHAs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/find-and-customize-actions)
+  Full SHA, not abbreviated; verify the SHA is from the action repository, not a fork. Example `uses: owner/repo@<40-hex>`.
+- [GitHub: Secure use reference](https://docs.github.com/en/actions/reference/security/secure-use)
+  Same SHA-pinning contract, plus repository/organization policies that can *require* SHA pins (`sha_pinning_required`). The YAML pin is this unit; the GitHub setting waits.
+- [Dockerfile reference: USER](https://docs.docker.com/reference/dockerfile/#user)
+  `USER <user>[:<group>]` or `USER <UID>[:<GID>]`. Sets the user for later `RUN` and for runtime `CMD` / `ENTRYPOINT`. Default without `USER` is root.
+- [Docker Engine security](https://docs.docker.com/engine/security/)
+  Closing note: containers are quite secure especially if processes run as non-privileged users. Stop before capabilities, user namespaces, seccomp, AppArmor, and Content Trust as skills.
 
 ## Wisdom
 
@@ -241,8 +251,9 @@
 ## Gaps
 
 - Docker Compose, multi-container local stacks, and publishing images from CI wait until later production-engineering / capstone work (Compose is not a separate unit yet).
-- Action SHA pinning, non-root `USER`, baked-secret review, and image hardening wait for `scala-027`.
-- Required status checks / branch protection are a GitHub repository setting, not a workflow YAML skill in `scala-026`.
+- Required status checks / branch protection are a GitHub repository setting, not a workflow YAML skill.
+- `sha_pinning_required` (require SHA pins in the GitHub Actions policy UI) is the same kind of setting — `scala-027` writes the pins in YAML.
+- CodeQL, OpenSSF Scorecards, distroless / read-only rootfs / dropped capabilities, and Cosign wait for later hardening if the capstone needs them.
 - Scala Steward (or Dependabot `sbt`) is out of scope while this lab’s pins live in Scala CLI `using` directives.
 - `HEALTHCHECK`, metrics, and tracing wait for `scala-028`.
 - Deployment platform will be selected only when the capstone reaches production-readiness work.

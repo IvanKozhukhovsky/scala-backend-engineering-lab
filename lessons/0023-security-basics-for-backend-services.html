@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security basics for backend services</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-027 · Phase 07 · Production Engineering</p>
+      <h1>Security basics for backend services</h1>
+      <p class="lede">
+        You can harden the recipes you already wrote: pin GitHub Actions to a
+        full-length commit SHA, run the JVM as a non-root
+        <code>USER</code>, and keep tokens out of image layers — without
+        changing <code>rateOf</code> or baking a Secret into
+        <code>ENV</code>.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Days 19–26 already bought</a></li>
+          <li><a href="#sha">A tag moves; a SHA does not</a></li>
+          <li><a href="#user">USER is uid, default is root</a></li>
+          <li><a href="#secret">Layers remember what you COPY</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 19: <code>Secret.toString</code> is a short SHA-1 prefix;
+        never log <code>.value</code>.
+        Day 21: <code>$code</code> in doobie <code>sql</code> is a bind,
+        not string interpolation.
+        Day 25: <code>ENV QUOTES_CODE=EUR</code> is process env, not a
+        <code>CMD</code> argument; a token in <code>ENV</code> is a layer
+        <code>docker history</code> can show.
+        Day 26: <code>uses: VirtusLab/scala-cli-setup@v1.16.0</code> is a
+        version tag, not <code>@main</code>;
+        <code>permissions: contents: read</code>.
+        Before reading on: if a maintainer retargets the tag
+        <code>v7</code> at a different commit, what does
+        <code>uses: actions/checkout@v7</code> run next week?
+        If the Dockerfile never says <code>USER</code>, which uid is
+        <code>java</code>?
+      </section>
+
+      <h2 id="sha">A tag moves; a SHA does not</h2>
+      <p>
+        GitHub’s
+        <a href="https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions">security hardening</a>
+        wording: pinning an action to a
+        <em>full-length commit SHA</em> is currently the only way to use
+        it as an immutable release. A tag can be moved or deleted. A
+        40-character SHA names one git object. An abbreviated SHA is not
+        enough.<a class="sidenote-ref" href="#sn-sha">1</a>
+      </p>
+      <aside class="sidenote" id="sn-sha">
+        The
+        <a href="https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/find-and-customize-actions#using-shas">Using SHAs</a>
+        page: verify the SHA is from the action’s repository, not a
+        fork. Keep the human tag as a trailing comment so you can still
+        read the version.
+      </aside>
+      <p>
+        Day 26 already refused <code>@main</code> and <code>latest</code>.
+        <code>@v7</code> is better than that, and still a name the
+        maintainer can retarget. The pin in this unit is the commit
+        currently at that tag, plus <code># v7</code> so a human — and
+        <a href="https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/auto-update-actions">Dependabot</a>
+        — can see which release it is. Dependabot already watches
+        <code>github-actions</code> at <code>/</code>; a SHA pin does
+        not freeze you forever. It makes the bump a pull request.
+      </p>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>uses: actions/checkout@v7
+uses: coursier/cache-action@v8
+uses: VirtusLab/scala-cli-setup@main</code>
+    <span>Tags and branches move. Next week’s run may not be the commit you reviewed.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+uses: coursier/cache-action@95e5b1029b6b86e7bac033ee44a0697d8a527d2d # v8</code>
+    <span>Forty hex characters. The comment is the tag you resolved on 2026-09-04.</span>
+  </div>
+  <figcaption>GitHub: a tag is convenient; a full-length SHA is the immutable release.</figcaption>
+</figure>
+      <p>
+        Watch annotated tags.
+        <code>coursier/cache-action</code> <code>v8</code> is one: the
+        git tag object has its own SHA
+        (<code>7e3b209d…</code>). That is not the commit GitHub Actions
+        runs. <code>ActionPin.sha</code> is the commit
+        (<code>95e5b102…</code>). If a lookup returns
+        <code>"type": "tag"</code>, take one more hop to the commit.
+      </p>
+      <p>
+        <code>pinPipeline</code> in
+        <a href="../src/main/scala/day27/Day27.scala"><code>Day27.scala</code></a>
+        rewrites Day 26’s <code>uses:</code> tags. Building the case
+        class does not talk to GitHub.
+        <code>.github/workflows/ci.yml</code> stays the Day 26 contract
+        so those tests still match.
+        <code>ci/quotes-pinned.yml</code> is the hardened twin. Tests
+        compare; they do not wait for a GitHub run.
+      </p>
+
+      <h2 id="user">USER is uid, default is root</h2>
+      <p>
+        Docker’s
+        <a href="https://docs.docker.com/reference/dockerfile/#user"><code>USER</code></a>
+        instruction sets the user (or UID) for later
+        <code>RUN</code> and for runtime <code>CMD</code> /
+        <code>ENTRYPOINT</code>. If you never set it, the default is
+        root — uid 0. Docker’s own
+        <a href="https://docs.docker.com/engine/security/">engine security</a>
+        note: containers are “especially” better if the process inside
+        is a non-privileged user.<a class="sidenote-ref" href="#sn-user">2</a>
+      </p>
+      <aside class="sidenote" id="sn-user">
+        Alpine’s BusyBox <code>adduser</code> is what this base image
+        has — not Debian <code>useradd</code>.
+        <code>-D</code> skips a password, <code>-H</code> skips a home
+        directory, <code>-u 1000</code> picks the uid.
+        <code>USER 1000</code> is the numeric form from the Dockerfile
+        reference.
+      </aside>
+      <p>
+        <code>adduser</code> needs root, so it runs <em>before</em>
+        <code>USER</code>. <code>CMD</code> stays exec form after
+        <code>USER</code>: PID 1 is still <code>java</code>; the uid is
+        1000. Day 25’s <code>FROM</code>, JAR, and
+        <code>ENV QUOTES_CODE</code> do not change.
+        <code>rateOf</code> is still <code>Map.get</code>.
+      </p>
+<pre><code>FROM eclipse-temurin:21-jre-alpine-3.24
+WORKDIR /app
+COPY quotes.jar quotes.jar
+ENV QUOTES_CODE=EUR
+RUN adduser -D -H -u 1000 app
+USER 1000
+CMD ["java", "-jar", "quotes.jar"]</code></pre>
+      <p>
+        <code>packaging/quotes/Dockerfile</code> stays the Day 25
+        contract. <code>hardenedDockerfileOf</code> writes the twin
+        <code>packaging/quotes/hardened.Dockerfile</code>. Tests inspect
+        the text; they do not <code>docker build</code>.
+      </p>
+
+      <h2 id="secret">Layers remember what you COPY</h2>
+      <p>
+        Ciris already wraps tokens in <code>Secret</code> at the rim.
+        That does not help if the Dockerfile
+        <code>ENV API_TOKEN=…</code> or <code>COPY .env</code>. Those
+        bytes are a layer. Day 25 already refused a token in
+        <code>ENV</code>; this unit names the check
+        <code>secretInRecipe</code> so a test can fail closed on
+        <code>token</code>, <code>password</code>, <code>secret</code>,
+        and <code>.env</code>.
+        <code>QUOTES_CODE=EUR</code> is a currency code, not a Secret.
+      </p>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>ENV API_TOKEN=ghp_…
+COPY .env .env
+USER 0</code>
+    <span>Secret in history. Root at runtime. Ciris cannot un-bake a layer.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>ENV QUOTES_CODE=EUR
+USER 1000
+# token stays in process env / Ciris Secret, not in the recipe</code>
+    <span>Config default is a code. The process uid is not 0.</span>
+  </div>
+  <figcaption>The recipe is the contract. A Secret belongs at the rim, not in a layer.</figcaption>
+</figure>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read GitHub
+        <a href="https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions">Security hardening — Using third-party actions</a>
+        through the full-length commit SHA paragraph and the note that
+        a tag can still move. Stop before CodeQL, OpenSSF Scorecards,
+        and <code>pull_request_target</code> as skills.
+        Read
+        <a href="https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/find-and-customize-actions#using-shas">Using SHAs</a>
+        (full SHA, not abbreviated; verify the repository, not a fork).
+        Skim
+        <a href="https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/auto-update-actions">Keeping your actions up to date</a>
+        so SHA pins still get Dependabot PRs.
+        Read the Dockerfile
+        <a href="https://docs.docker.com/reference/dockerfile/#user"><code>USER</code></a>
+        instruction (name or UID; it applies to later
+        <code>RUN</code> / <code>CMD</code>).
+        Read Docker
+        <a href="https://docs.docker.com/engine/security/">Engine security</a>
+        through the closing note on non-privileged users. Stop before
+        capabilities, user namespaces, seccomp, and AppArmor as skills.
+        Re-read
+        <a href="https://docs.docker.com/reference/dockerfile/#env"><code>ENV</code></a>
+        only for the “do not bake secrets” reminder, and Ciris
+        <a href="https://cir.is/api/ciris/Secret.html"><code>Secret</code></a>
+        if <code>toString</code> vs <code>.value</code> is fuzzy.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Security basics retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt"><code>uses: …@v7</code> is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">a movable version tag</button>
+            <button type="button">an immutable commit SHA</button>
+            <button type="button">the read-only contents grant</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="GitHub: a tag can be moved or deleted. The immutable pin is the 40-character commit SHA, with the tag kept as a comment." data-bad="A full-length SHA is the immutable release. contents: read is the GITHUB_TOKEN grant from Day 26."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Without USER the process is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">root until USER switches</button>
+            <button type="button">app uid one thousand</button>
+            <button type="button">postgres from the base</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Docker defaults to root (uid 0) unless USER says otherwise. adduser then USER 1000 is this unit’s pin." data-bad="uid 1000 is what USER 1000 sets. postgres:16-alpine is still a different image."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A uses pin must be:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">forty lowercase hex characters</button>
+            <button type="button">the latest floating tag</button>
+            <button type="button">a write-all token grant</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="GitHub requires the full SHA, not an abbreviation. Dependabot can still open a PR that moves the SHA and the comment together." data-bad="latest and write-all are the Day 26 anti-patterns. A short SHA is not a pin."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">ENV TOKEN= in a Dockerfile:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">bakes into docker history</button>
+            <button type="button">Ciris Secret toString hash</button>
+            <button type="button">SQL bind not interpolation</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="A layer stores the bytes. Ciris Secret at the rim cannot un-bake ENV or COPY .env." data-bad="Secret.toString is the prefix you log. A doobie $bind is Day 21, not an image layer."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Tests inspect the recipe. They do not start Docker or a GitHub
+        run. Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day27.Day27Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>deskHardened</code> and <code>deskActionPins</code>
+        in
+        <a href="../src/main/scala/day27/ExercisesDay27.scala"><code>ExercisesDay27.scala</code></a>.
+        Write
+        <a href="../packaging/desk/hardened.Dockerfile"><code>packaging/desk/hardened.Dockerfile</code></a>
+        so the file equals
+        <code>hardenedDockerfileOf(deskHardened)</code> exactly, and
+        write
+        <a href="../ci/desk-pinned.yml"><code>ci/desk-pinned.yml</code></a>
+        so the file equals
+        <code>workflowOf(pinPipeline(deskPipeline, deskActionPins))</code>.
+        The spec is
+        <a href="../src/test/scala/day27/ExercisesDay27Suite.test.scala"><code>ExercisesDay27Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        Reuse <code>deskRuntime</code>, <code>checkoutPin</code>, and
+        <code>scalaCliSetupPin</code>. Do not invent SHAs. Do not alias
+        the quotes values. Do not leave the process as uid 0. Do not
+        bake a token. Do not change
+        <code>packaging/desk/Dockerfile</code> or
+        <code>ci/desk.yml</code> — those are Day 25 / Day 26 contracts.
+        Do not put the pinned YAML under
+        <code>.github/workflows</code>.
+        Then run
+        <code>scala-cli test . --test-only 'day27.ExercisesDay27Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why is the tag-object SHA wrong?”)
+        over “explain security again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0022-ci-quality-gates-and-dependency-hygiene.html">CI quality gates and dependency hygiene</a>
+          · Cheat sheet:
+          <a href="../reference/security-basics.html">Security basics</a>
+          · Metrics, logs, tracing and health checks are the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

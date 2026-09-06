@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Cache Scala dependencies
+        uses: coursier/cache-action@95e5b1029b6b86e7bac033ee44a0697d8a527d2d # v8
+
+      - name: Set up Scala CLI
+        uses: VirtusLab/scala-cli-setup@8db5313925605c20e292348c1749e80dac7eed0f # v1.16.0
+        with:
+          scala-cli-version: "1.16.0"
+
+      - name: Validate curriculum state
+        run: python3 scripts/progress.py check
+
+      - name: Check formatting
+        run: scala-cli fmt --check .
+
+      - name: Run tests
+        run: scala-cli test .

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security basics cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-027</p>
+      <h1>Security basics for backend services</h1>
+      <p class="lede">A tag moves. A full-length SHA does not. Default USER is root. Secrets do not belong in image layers.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0023-security-basics-for-backend-services.html">Security basics for backend services</a>.
+        Docs:
+        <a href="https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions">Actions hardening</a>,
+        <a href="https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/find-and-customize-actions#using-shas">Using SHAs</a>,
+        <a href="https://docs.docker.com/reference/dockerfile/#user">USER</a>,
+        <a href="https://docs.docker.com/engine/security/">engine security</a>,
+        <a href="https://cir.is/api/ciris/Secret.html">Ciris Secret</a>.
+        Pins resolved 2026-09-04:
+        <code>actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1</code> (<code># v7</code>),
+        <code>coursier/cache-action@95e5b1029b6b86e7bac033ee44a0697d8a527d2d</code> (<code># v8</code>),
+        <code>VirtusLab/scala-cli-setup@8db5313925605c20e292348c1749e80dac7eed0f</code> (<code># v1.16.0</code>).
+      </p>
+
+      <h2>Layers</h2>
+      <ul>
+        <li>App — parameterized SQL (Day 21), Ciris <code>Secret</code> at the rim (Day 19). Unchanged.</li>
+        <li>Image — Day 25 recipe plus Alpine <code>adduser</code> and <code>USER 1000</code>.</li>
+        <li>CI — Day 26 recipe plus full-length SHA on every <code>uses:</code>.</li>
+      </ul>
+
+      <h2>Action pin</h2>
+<pre><code>uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7</code></pre>
+      <ul>
+        <li>Forty lowercase hex characters. Not <code>@v7</code>, not a short SHA, not <code>@main</code>.</li>
+        <li>The comment is the tag you resolved. Dependabot can still open a PR.</li>
+        <li>Annotated tag: pin the <em>commit</em>, not the tag object’s own SHA.</li>
+        <li><code>pinPipeline</code> rewrites Day 26 <code>uses:</code>. Tests compare <code>ci/quotes-pinned.yml</code>; they need not wait for GitHub. Live <code>ci.yml</code> stays the Day 26 contract.</li>
+      </ul>
+
+      <h2>Image user</h2>
+<pre><code>RUN adduser -D -H -u 1000 app
+USER 1000
+CMD ["java", "-jar", "quotes.jar"]</code></pre>
+      <ul>
+        <li>No <code>USER</code> means root (uid 0). <code>adduser</code> needs root, so it comes first.</li>
+        <li>Exec-form <code>CMD</code> still makes <code>java</code> PID 1. The uid is 1000.</li>
+        <li><code>hardenedDockerfileOf</code> renders the twin. <code>packaging/quotes/Dockerfile</code> stays Day 25.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Reuse the resolved <code>ActionPin</code> values. Do not invent SHAs.</li>
+        <li>Keep <code>contents: read</code>. Keep <code>rateOf</code> as <code>Map.get</code>.</li>
+        <li>Pass tokens through process env / Ciris <code>Secret</code>, not <code>ENV</code> / <code>COPY .env</code>.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li><code>uses: …@v7</code> as the pin. Tag-object SHA for an annotated tag.</li>
+        <li><code>USER 0</code>. Debian <code>useradd</code> on this Alpine base.</li>
+        <li>Bake <code>token</code> / <code>password</code> / <code>Secret</code> / <code>.env</code> into a layer.</li>
+        <li>Change Day 25 / Day 26 contract files to make this unit pass.</li>
+        <li>Introduce CodeQL, Scorecards, <code>sha_pinning_required</code>, capabilities, distroless, or health checks (later / other units).</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="ci-quality-gates.html">CI quality gates</a>,
+          <a href="docker-packaging.html">Docker packaging</a>,
+          <a href="service-architecture.html">Configuration and logging</a>.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

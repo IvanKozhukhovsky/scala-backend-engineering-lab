@@ -70,7 +70,7 @@ docker run --rm --env QUOTES_CODE=GBP quotes:0.1.0</code></pre>
         <li><code>FROM postgres</code> for the service. <code>COPY . .</code>. Install Scala CLI in the runtime.</li>
         <li>Bake tokens or <code>.env</code> files into layers. Use <code>latest</code> as the app tag.</li>
         <li>Put Docker or env lookups inside <code>rateOf</code>.</li>
-        <li>Introduce Compose, <code>jlink</code>, GraalVM, <code>USER</code>, or health checks (later units).</li>
+        <li>Introduce Compose, <code>jlink</code>, GraalVM, or health checks (later units). Non-root <code>USER</code> is <a href="security-basics.html">scala-027</a>.</li>
       </ul>
 
       <footer class="meta">
@@ -80,7 +80,8 @@ docker run --rm --env QUOTES_CODE=GBP quotes:0.1.0</code></pre>
           <a href="service-architecture.html">Configuration and logging</a>,
           <a href="http-integration.html">HTTP integration testing</a>.
           Next:
-          <a href="ci-quality-gates.html">CI quality gates</a>.
+          <a href="ci-quality-gates.html">CI quality gates</a>,
+          <a href="security-basics.html">Security basics</a>.
         </p>
       </footer>
     </div>

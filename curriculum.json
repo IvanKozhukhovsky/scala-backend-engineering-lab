@@ -886,10 +886,27 @@
           "id": "scala-027",
           "sequence": 27,
           "title": "Security basics for backend services",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0023-security-basics-for-backend-services.html"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day27/ExercisesDay27Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day27/ExercisesDay27.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0022-sha-is-the-pin-tag-is-a-comment.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/30"
         },
         {
