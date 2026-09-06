@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capstone spec and ADR cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-029</p>
+      <h1>Capstone architecture and API specification</h1>
+      <p class="lede">OpenAPI is the HTTP contract. Layers name ownership. An ADR records one decision.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0025-capstone-architecture-and-api-specification.html">Capstone architecture and API specification</a>.
+        Docs:
+        <a href="https://spec.openapis.org/oas/v3.1.2.html">OAS 3.1.2</a>,
+        <a href="https://learn.openapis.org/introduction.html">Introduction</a>,
+        <a href="https://learn.openapis.org/specification/structure.html">Structure</a>,
+        <a href="https://learn.openapis.org/specification/paths.html">Endpoints</a>,
+        <a href="https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions">Nygard ADRs</a>.
+        This unit pins <code>openapi: 3.1.2</code>. No new Scala library.
+      </p>
+
+      <h2>OpenAPI</h2>
+<pre><code>openapi: 3.1.2
+info:
+  title: quotes
+  version: 0.1.0
+paths:
+  /rates/{code}:
+    parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Rate for a currency
+      responses:
+        '200':
+          description: Known code</code></pre>
+      <ul>
+        <li><code>openapi</code> is the OAS version. <code>info.version</code> is the document.</li>
+        <li>A Path Item lists allowed methods. Omitted methods are not documented operations.</li>
+        <li>Path templates need a <code>required: true</code> path parameter of the same name.</li>
+        <li>Building <code>openapiOf</code> does not bind a port. Twin: <code>docs/capstone/quotes.openapi.yaml</code>.</li>
+      </ul>
+
+      <h2>Layers</h2>
+      <ul>
+        <li>Core — <code>rateOf</code> / <code>convertAmount</code>. No HTTP, JDBC, env, logs, metrics.</li>
+        <li>Http — status, JSON, logs, counters. No catalog <code>Map.get</code>.</li>
+        <li>Persistence — Flyway and <code>transact</code>. Named here; wired in scala-031.</li>
+        <li>Runtime — Ciris, <code>HEALTHCHECK</code>, uid.</li>
+      </ul>
+
+      <h2>ADR</h2>
+<pre><code># ADR 1: OpenAPI is the HTTP contract
+
+## Context
+## Decision
+## Status
+## Consequences</code></pre>
+      <ul>
+        <li>One significant decision per file. “We will …” in the Decision.</li>
+        <li>This lab: <code>docs/adr/0001-….md</code>. Do not reuse numbers.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Keep 400 / 422 / 404 / 405 from
+          <a href="json-codecs.html">scala-018</a> / <a href="http-rest.html">scala-017</a>.</li>
+        <li>Compare checked-in files to <code>openapiOf</code> / <code>architectureOf</code> / <code>adrOf</code>.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Implement <code>HttpRoutes</code>, Ember, or Flyway in this unit (scala-030 / scala-031).</li>
+        <li>Document POST on <code>/health</code>, or put <code>/metrics</code> on the client contract.</li>
+        <li>Introduce Swagger UI, codegen, Tapir, http4s-rho, OAS 3.2, or C4 diagrams.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="http-rest.html">HTTP and REST</a>,
+          <a href="json-codecs.html">JSON codecs</a>,
+          <a href="service-architecture.html">Configuration and logging</a>,
+          <a href="observability.html">Observability</a>.
+          Next: capstone implementation with TDD.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

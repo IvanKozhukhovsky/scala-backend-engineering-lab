@@ -256,6 +256,16 @@
   Primary narrative: the command runs inside the container; exit 0 healthy, 1 unhealthy, 2 reserved; `--interval` / `--timeout` / `--retries`; only the last `HEALTHCHECK` wins. This unit pins BusyBox `wget` on Alpine, not the docs’ `curl` example.
 - [W3C Trace Context: trace-id](https://www.w3.org/TR/trace-context/#trace-id)
   16-byte identifier as 32 lowercase hex. All zeroes is invalid. Header shape `version-trace-id-parent-id-trace-flags`. Stop before `tracestate` and random-flag generation as skills.
+- [OpenAPI Specification 3.1.2](https://spec.openapis.org/oas/v3.1.2.html)
+  Primary wording for `scala-029`: language-agnostic HTTP interface; `openapi` is the OAS version, not `info.version`. Pin the document field as `3.1.2`. Stop before webhooks-only documents, JSON Schema dialect, and OAS 3.2 (`QUERY`, `$self`, `additionalOperations`).
+- [learn.openapis.org: Introduction](https://learn.openapis.org/introduction.html)
+  Contract framing; OpenAPI lists operations you can do and does not assert operations absent from the document.
+- [learn.openapis.org: Structure](https://learn.openapis.org/specification/structure.html)
+  Required `openapi` + `info` (`title`, `version`) and at least one of `paths` / `components` / `webhooks`. YAML or JSON; field names are case-sensitive.
+- [learn.openapis.org: API Endpoints](https://learn.openapis.org/specification/paths.html)
+  Paths Object, Path Item `get`/`post`, quoted response status codes, mandatory response `description`.
+- [Nygard: Documenting Architecture Decisions](https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions)
+  Primary ADR format for `scala-029`: title, context, decision (“We will …”), status, consequences. One significant decision per file. His path was `doc/arch/adr-NNN.md`; this lab uses `docs/adr/`.
 
 ## Wisdom
 
@@ -271,5 +281,7 @@
 - `sha_pinning_required` (require SHA pins in the GitHub Actions policy UI) is the same kind of setting — `scala-027` writes the pins in YAML.
 - CodeQL, OpenSSF Scorecards, distroless / read-only rootfs / dropped capabilities, and Cosign wait for later hardening if the capstone needs them.
 - Scala Steward (or Dependabot `sbt`) is out of scope while this lab’s pins live in Scala CLI `using` directives.
-- slf4j / logback as a `StructuredLogger` backend, otel4s, a live Prometheus scrape, Grafana, Jaeger, Kubernetes `httpGet` probes, histograms, and Compose `healthcheck:` wait for capstone / later hardening.
+- slf4j / logback as a `StructuredLogger` backend, otel4s, a live Prometheus scrape, Grafana, Jaeger, Kubernetes `httpGet` probes, histograms, and Compose `healthcheck:` wait for later hardening.
+- Swagger UI, OpenAPI codegen, Tapir, http4s-rho, and OAS 3.2 (`QUERY`, `$self`) wait; `scala-029` renders YAML by hand.
+- Capstone implementation (Ember routes against the spec) is `scala-030`. Persistence wiring against that architecture is `scala-031`.
 - Deployment platform will be selected only when the capstone reaches production-readiness work.

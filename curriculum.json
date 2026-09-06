@@ -947,11 +947,32 @@
           "id": "scala-029",
           "sequence": 29,
           "title": "Capstone architecture and API specification",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
-          "githubIssue": null
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0025-capstone-architecture-and-api-specification.html"
+            },
+            {
+              "type": "source",
+              "path": "reference/capstone-spec.html"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day29/ExercisesDay29Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day29/ExercisesDay29.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0024-omitted-method-is-still-405.md"
+            }
+          ],
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/33"
         },
         {
           "id": "scala-030",
@@ -961,7 +982,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/34"
         },
         {
           "id": "scala-031",
@@ -971,7 +992,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/36"
         },
         {
           "id": "scala-032",
@@ -981,7 +1002,7 @@
           "exerciseStatus": "notStarted",
           "verificationStatus": "notStarted",
           "evidence": [],
-          "githubIssue": null
+          "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/35"
         }
       ]
     }

@@ -1,0 +1,114 @@
+openapi: 3.1.2
+info:
+  title: desk
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthOut'
+  /orders/{code}:
+    parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Rate for a currency
+      responses:
+        '200':
+          description: Known code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateOut'
+        '404':
+          description: Unknown code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /orders:
+    post:
+      summary: Place an order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderIn'
+      responses:
+        '200':
+          description: Placed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderOut'
+        '400':
+          description: Malformed JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Well-formed JSON the resource cannot process
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+components:
+  schemas:
+    HealthOut:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    RateOut:
+      type: object
+      required:
+        - code
+        - cents
+      properties:
+        code:
+          type: string
+        cents:
+          type: integer
+    OrderIn:
+      type: object
+      required:
+        - code
+        - qty
+      properties:
+        code:
+          type: string
+        qty:
+          type: integer
+    OrderOut:
+      type: object
+      required:
+        - code
+        - qty
+        - cents
+      properties:
+        code:
+          type: string
+        qty:
+          type: integer
+        cents:
+          type: integer
+    ApiError:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string

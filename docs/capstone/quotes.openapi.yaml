@@ -1,0 +1,111 @@
+openapi: 3.1.2
+info:
+  title: quotes
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthOut'
+  /rates/{code}:
+    parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Rate for a currency
+      responses:
+        '200':
+          description: Known code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateOut'
+        '404':
+          description: Unknown code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /convert:
+    post:
+      summary: Convert an amount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConvertIn'
+      responses:
+        '200':
+          description: Converted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConvertOut'
+        '400':
+          description: Malformed JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Well-formed JSON the resource cannot process
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+components:
+  schemas:
+    HealthOut:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    RateOut:
+      type: object
+      required:
+        - code
+        - cents
+      properties:
+        code:
+          type: string
+        cents:
+          type: integer
+    ConvertIn:
+      type: object
+      required:
+        - code
+        - qty
+      properties:
+        code:
+          type: string
+        qty:
+          type: integer
+    ConvertOut:
+      type: object
+      required:
+        - code
+        - cents
+      properties:
+        code:
+          type: string
+        cents:
+          type: integer
+    ApiError:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string

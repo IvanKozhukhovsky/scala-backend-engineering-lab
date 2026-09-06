@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capstone architecture and API specification</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-029 · Phase 08 · Capstone</p>
+      <h1>Capstone architecture and API specification</h1>
+      <p class="lede">
+        You can write an OpenAPI document as the HTTP contract, name who owns
+        each layer, and record one architecture decision — without implementing
+        the service, binding a port, or generating http4s.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Days 11–28 already bought</a></li>
+          <li><a href="#contract">The spec is the oracle</a></li>
+          <li><a href="#openapi">OpenAPI lists allowed operations</a></li>
+          <li><a href="#layers">Architecture is named ownership</a></li>
+          <li><a href="#adr">One decision, one record</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 11: the core returns a value; the shell does I/O.
+        Day 17: URI names the resource; method is the operation; 405 is the
+        wrong method on a known URI.
+        Day 18: POST unknown code is 422, not 404; 400 is malformed JSON.
+        Day 19: Ciris and logs live at the HTTP rim; <code>convertAmount</code>
+        stays pure.
+        Day 22: <code>transact</code> is the JDBC rim.
+        Day 28: <code>bump</code> and <code>HEALTHCHECK</code> also stay outside
+        <code>rateOf</code>.
+        Before reading on: if scala-030 starts coding Ember routes first, what
+        would a reviewer use as the intended surface? If POST is missing from
+        the <code>/health</code> document, is that a 404 in the spec or a
+        method the spec simply does not list?
+      </section>
+
+      <h2 id="contract">The spec is the oracle</h2>
+      <p>
+        OpenAPI’s own wording: an OpenAPI Description is a
+        language-agnostic interface so humans and computers can understand a
+        service <em>without access to source code, extra docs, or network
+        traffic</em>.<a class="sidenote-ref" href="#sn-oas">1</a>
+        learn.openapis.org calls that file a
+        <em>contract</em>: the provider promises to honour it.
+        Days 17–19 already had a contract — it lived as
+        <code>HttpRoutes</code>. That is Scala. A reviewer who does not run
+        the suite cannot see it. This unit moves the HTTP surface into a
+        checked-in YAML document. Tests compare the file to
+        <code>openapiOf</code>. Implementation is
+        <strong>scala-030</strong>. Persistence wiring is
+        <strong>scala-031</strong>.
+      </p>
+      <aside class="sidenote" id="sn-oas">
+        <a href="https://spec.openapis.org/oas/v3.1.2.html">OAS 3.1.2</a>:
+        the <code>openapi</code> field is the specification version.
+        <code>info.version</code> is the document’s version. They are not
+        the same string. This unit pins <code>3.1.2</code>. OAS 3.2.0 exists;
+        we do not need <code>QUERY</code> or <code>$self</code>.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>HttpRoutes.of[IO] { … }</code>
+    <span>The contract is Scala. The test has to run the app to see it.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>openapiOf(quotesOpenApi)</code>
+    <span>The contract is YAML. The test compares bytes. Ember still waits.</span>
+  </div>
+  <figcaption>Building the spec does not bind a port. Same move as dockerfileOf.</figcaption>
+</figure>
+
+      <h2 id="openapi">OpenAPI lists allowed operations</h2>
+      <p>
+        Required fields: <code>openapi</code>, <code>info</code>
+        (<code>title</code> + <code>version</code>), and at least one of
+        <code>paths</code>, <code>components</code>, or
+        <code>webhooks</code>.<a class="sidenote-ref" href="#sn-min">2</a>
+        Paths start with <code>/</code>. A Path Item has
+        <code>get</code> / <code>post</code> / … — the HTTP methods that
+        exist <em>on that path</em>. Path templating
+        <code>/rates/{code}</code> needs a parameter named
+        <code>code</code> with <code>in: path</code> and
+        <code>required: true</code>.
+      </p>
+      <aside class="sidenote" id="sn-min">
+        <a href="https://learn.openapis.org/specification/structure.html">Structure</a>:
+        YAML or JSON. Field names are case-sensitive.
+        <a href="https://learn.openapis.org/specification/paths.html">Endpoints</a>:
+        response codes are quoted strings (<code>'200'</code>).
+      </aside>
+      <p>
+        OpenAPI lists operations you <em>can</em> do. It does not assert
+        anything about operations that are absent from the
+        document.<a class="sidenote-ref" href="#sn-omit">3</a>
+        POST is missing from <code>/health</code> in the quotes spec. That is
+        not a documented 404. RFC 9110 still wants 405 +
+        <code>Allow: GET</code> when the URI exists. scala-030 will implement
+        that. This unit’s document simply does not list POST there.
+      </p>
+      <aside class="sidenote" id="sn-omit">
+        <a href="https://learn.openapis.org/introduction.html">Introduction</a>:
+        “OpenAPI lists operations that you can do, but it does not assert
+        anything regarding operations not in the OAD.”
+      </aside>
+<pre><code>openapi: 3.1.2
+info:
+  title: quotes
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: Service is up</code></pre>
+      <p>
+        JSON bodies are Schema Objects under
+        <code>components.schemas</code>, referenced with
+        <code>$ref: '#/components/schemas/RateOut'</code>.
+        Day 18’s 400 / 422 split stays: POST
+        <code>/convert</code> lists both statuses on
+        <code>ApiError</code>. GET miss stays 404. Do not put
+        <code>/metrics</code> on this contract — a counter scrape is not a
+        client resource.
+      </p>
+
+      <h2 id="layers">Architecture is named ownership</h2>
+      <p>
+        Architecture here is not a library inventory. It is who owns which
+        job, so scala-030 has a place to put code without stuffing JDBC into
+        <code>rateOf</code>. Four layers, all already in this lab:
+      </p>
+<figure class="trio">
+  <div class="pair-box ok">
+    <code>Core</code>
+    <span><code>rateOf</code> / <code>convertAmount</code>. No HTTP, JDBC, env, logs, metrics.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>Http</code>
+    <span>Status mapping, JSON, structured logs, counters. No <code>Map.get</code> catalog.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>Persistence</code>
+    <span>Flyway and <code>ConnectionIO.transact</code>. Named now; wired in scala-031.</span>
+  </div>
+</figure>
+      <p>
+        Runtime is the fourth: Ciris env, Docker <code>HEALTHCHECK</code>,
+        process uid. <code>architectureOf</code> renders a short markdown
+        note. Building that string does not start Postgres.
+      </p>
+
+      <h2 id="adr">One decision, one record</h2>
+      <p>
+        Nygard: keep a short record for an
+        <em>architecturally significant</em> decision — structure,
+        interfaces, construction technique — not every import.
+        One decision per file. Title is a noun phrase. Context is
+        value-neutral. Decision uses active voice:
+        “We will …”. Status starts as accepted once you mean it.
+        Consequences list the downsides too.<a class="sidenote-ref" href="#sn-adr">4</a>
+        His path was <code>doc/arch/adr-NNN.md</code>. This lab uses
+        <code>docs/adr/</code> next to the other public docs. Numbers are
+        sequential and not reused. If you reverse a decision later, keep the
+        old file and mark it superseded.
+      </p>
+      <aside class="sidenote" id="sn-adr">
+        <a href="https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions">Documenting Architecture Decisions</a>
+        (Michael Nygard, 2011). One or two pages. Write it as a conversation
+        with a future developer.
+      </aside>
+      <p>
+        ADR 1 for quotes: the HTTP contract is the OpenAPI document, not
+        <code>HttpRoutes</code>. The consequence you already know how to
+        test: spec drift fails a file comparison. Generating server code from
+        YAML waits; so does Swagger UI.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read OAS
+        <a href="https://spec.openapis.org/oas/v3.1.2.html">3.1.2 — What is the OpenAPI Specification?</a>
+        through the <code>openapi</code> vs <code>info.version</code> note.
+        Read learn.openapis.org
+        <a href="https://learn.openapis.org/introduction.html">Introduction</a>
+        (contract; operations not in the OAD) and
+        <a href="https://learn.openapis.org/specification/structure.html">Structure</a>
+        (required fields; YAML). Skim
+        <a href="https://learn.openapis.org/specification/paths.html">API Endpoints</a>
+        for Path Item / quoted status codes.
+        Read Nygard
+        <a href="https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions">Documenting Architecture Decisions</a>
+        through the format (Context, Decision, Status, Consequences).
+        Stop before OAS 3.2, Swagger UI, codegen, Tapir, http4s-rho, C4
+        diagrams, and implementing Ember routes.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Capstone spec retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">An OpenAPI document lists:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">HTTP operations you allow</button>
+            <button type="button">every possible HTTP method</button>
+            <button type="button">Scala HttpRoutes source trees</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="OAS: a language-agnostic description of allowed operations. Missing methods are simply not in the document." data-bad="It does not enumerate every HTTP method, and it is not the Scala routes file."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">The openapi field names:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">the OAS spec version</button>
+            <button type="button">the API document version</button>
+            <button type="button">the Git release tag</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="OAS: openapi is 3.1.2 here. info.version is the document (0.1.0). They are different strings." data-bad="info.version is the document. A Git tag is not an OpenAPI field."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A method omitted from a path:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">is not documented there</button>
+            <button type="button">must return HTTP 200</button>
+            <button type="button">becomes a 404 resource</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="learn.openapis.org: the spec does not assert operations that are absent. RFC 9110 still wants 405 on a known URI." data-bad="Absence from the document is not success, and it is not ‘the resource is missing’."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">An ADR records:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">one significant architecture decision</button>
+            <button type="button">every imported library name</button>
+            <button type="button">the OpenAPI YAML schema</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Nygard: one architecturally significant decision per file, with context, decision, status, and consequences." data-bad="It is not a dependency list, and it is not the OpenAPI document itself."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        Tests inspect the YAML and markdown. They do not start Ember,
+        Postgres, or Swagger UI. Run the worked example:
+      </p>
+<pre><code>scala-cli test . --test-only 'day29.Day29Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>deskOpenApi</code>, <code>deskArchitecture</code>,
+        and <code>deskAdr0002</code> in
+        <a href="../src/main/scala/day29/ExercisesDay29.scala"><code>ExercisesDay29.scala</code></a>.
+        Write
+        <a href="../docs/capstone/desk.openapi.yaml"><code>docs/capstone/desk.openapi.yaml</code></a>,
+        <a href="../docs/capstone/desk-architecture.md"><code>docs/capstone/desk-architecture.md</code></a>,
+        and
+        <a href="../docs/adr/0002-unknown-post-code-is-422.md"><code>docs/adr/0002-unknown-post-code-is-422.md</code></a>
+        so each file equals <code>openapiOf</code> /
+        <code>architectureOf</code> / <code>adrOf</code> exactly.
+        After you fill the values you can print them with
+        <code>scala-cli --power run --test . --main-class day29.generateDeskOpenApi</code>
+        (and the Architecture / Adr mains).
+        The spec is
+        <a href="../src/test/scala/day29/ExercisesDay29Suite.test.scala"><code>ExercisesDay29Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        Reuse <code>healthOut</code>, <code>rateOut</code>, and
+        <code>apiError</code>. Do not alias
+        <code>quotesOpenApi</code>, <code>quotesArchitecture</code>, or
+        <code>quotesAdr0001</code>.
+        Desk paths are <code>/health</code>, <code>/orders/{code}</code>,
+        and <code>/orders</code> — not <code>/convert</code>.
+        Do not put POST on <code>/health</code>.
+        Do not implement <code>HttpRoutes</code>, Ember, or Flyway in this
+        unit. Do not change the quotes files or ADR 1.
+        Then run
+        <code>scala-cli test . --test-only 'day29.ExercisesDay29Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why isn’t a missing POST a 404 in OpenAPI?”)
+        over “explain architecture again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0024-metrics-logs-tracing-and-health-checks.html">Metrics, logs, tracing and health checks</a>
+          · Cheat sheet:
+          <a href="../reference/capstone-spec.html">Capstone spec and ADR</a>
+          · Implementation with TDD is the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>
