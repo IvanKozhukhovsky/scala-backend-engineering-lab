@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capstone TDD and reviews cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-030</p>
+      <h1>Capstone implementation with TDD and reviews</h1>
+      <p class="lede">OpenAPI is the expected value. One red test, then green. Review checks layers.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0026-capstone-implementation-with-tdd-and-reviews.html">Capstone implementation with TDD and reviews</a>.
+        Docs:
+        <a href="https://newsletter.kentbeck.com/p/canon-tdd">Canon TDD</a>,
+        <a href="https://martinfowler.com/bliki/TestDrivenDevelopment.html">Fowler TDD</a>,
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.405">RFC 9110 405</a>,
+        <a href="https://http4s.org/v0.23/docs/service.html">http4s Service</a>.
+        Same pins: http4s / Ember <code>0.23.36</code>, MUnit <code>1.0.4</code>.
+      </p>
+
+      <h2>Oracle</h2>
+      <ul>
+        <li>Documented operations: statuses and JSON from
+          <a href="../docs/capstone/quotes.openapi.yaml"><code>quotes.openapi.yaml</code></a>
+          / desk twin. Catalog cents stay <code>EUR → 108</code>.</li>
+        <li>Omitted methods: not in OpenAPI. RFC 9110 → 405 + <code>Allow</code>.</li>
+        <li>Do not paste the last run into <code>assertEquals</code>.</li>
+      </ul>
+
+      <h2>Loop</h2>
+<pre><code>// 1. one failing test (Request + status + body)
+// 2. one DSL case until that test passes
+// 3. next list item — not all routes at once</code></pre>
+      <ul>
+        <li>In-process <code>HttpApp.run</code> is the contract suite.</li>
+        <li>One Ember <code>GET /health</code> after green proves it is serveable.</li>
+        <li>An empty MUnit body still passes — that is not red.</li>
+      </ul>
+
+      <h2>Review</h2>
+      <ul>
+        <li>Core — <code>rateOf</code> / <code>convertAmount</code> / <code>orderOf</code>. No HTTP, JDBC.</li>
+        <li>Http — status, JSON, <code>Allow</code>. No catalog <code>Map.get</code> only inside <code>Ok</code>.</li>
+        <li>Persistence — named; wired in scala-031.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Keep 400 / 422 / 404 / 405 from
+          <a href="json-codecs.html">scala-018</a> /
+          <a href="http-rest.html">scala-017</a>.</li>
+        <li>Work one red test from <code>ExercisesDay30Suite</code> at a time.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Copy <code>quotesRoutes</code> and rename paths.</li>
+        <li>Put Flyway / <code>transact</code> in <code>rateOf</code> (scala-031).</li>
+        <li>Introduce Tapir, codegen, Swagger UI, <code>Router</code>, or <code>munit-cats-effect</code>.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="capstone-spec.html">Capstone spec and ADR</a>,
+          <a href="http-rest.html">HTTP and REST</a>,
+          <a href="json-codecs.html">JSON codecs</a>,
+          <a href="http-integration.html">HTTP integration</a>,
+          <a href="munit.html">MUnit</a>.
+          Next: capstone persistence and failure handling.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

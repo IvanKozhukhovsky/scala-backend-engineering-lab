@@ -266,6 +266,14 @@
   Paths Object, Path Item `get`/`post`, quoted response status codes, mandatory response `description`.
 - [Nygard: Documenting Architecture Decisions](https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions)
   Primary ADR format for `scala-029`: title, context, decision (“We will …”), status, consequences. One significant decision per file. His path was `doc/arch/adr-NNN.md`; this lab uses `docs/adr/`.
+- [Kent Beck: Canon TDD](https://newsletter.kentbeck.com/p/canon-tdd)
+  Primary wording for `scala-030`: test list, exactly one concrete test, make it pass, optionally refactor. Do not paste computed actuals into expected values. Do not convert the whole list into tests before the first green. Stop before treating refactor as a required third production feature in this unit — review is the second hat.
+- [Martin Fowler: Test Driven Development](https://martinfowler.com/bliki/TestDrivenDevelopment.html)
+  Short companion: red–green–refactor naming; writing the test first forces interface decisions. Points at Beck’s Canon TDD post.
+- [RFC 9110: 405 Method Not Allowed](https://www.rfc-editor.org/rfc/rfc9110.html#status.405)
+  Origin server MUST generate `Allow` on 405. Used in `scala-030` for methods omitted from the OpenAPI path item (the document stays silent; the service does not).
+- [RFC 9110: Allow](https://www.rfc-editor.org/rfc/rfc9110.html#name-allow)
+  The header lists methods currently supported by the target resource.
 
 ## Wisdom
 
@@ -283,5 +291,5 @@
 - Scala Steward (or Dependabot `sbt`) is out of scope while this lab’s pins live in Scala CLI `using` directives.
 - slf4j / logback as a `StructuredLogger` backend, otel4s, a live Prometheus scrape, Grafana, Jaeger, Kubernetes `httpGet` probes, histograms, and Compose `healthcheck:` wait for later hardening.
 - Swagger UI, OpenAPI codegen, Tapir, http4s-rho, and OAS 3.2 (`QUERY`, `$self`) wait; `scala-029` renders YAML by hand.
-- Capstone implementation (Ember routes against the spec) is `scala-030`. Persistence wiring against that architecture is `scala-031`.
+- Persistence wiring against the capstone architecture is `scala-031`. Production hardening, documentation and release are `scala-032`.
 - Deployment platform will be selected only when the capstone reaches production-readiness work.

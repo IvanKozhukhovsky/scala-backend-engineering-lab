@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capstone implementation with TDD and reviews</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-030 · Phase 08 · Capstone</p>
+      <h1>Capstone implementation with TDD and reviews</h1>
+      <p class="lede">
+        You can implement <code>HttpRoutes</code> against the Day 29 OpenAPI
+        document using a red–green loop, take expected values from the spec
+        (and RFC 9110 for omitted methods), then review that Core still owns
+        <code>rateOf</code> — without wiring Flyway or generating http4s.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Day 29 already bought</a></li>
+          <li><a href="#oracle">The spec is the expected value</a></li>
+          <li><a href="#tdd">One failing test, then green</a></li>
+          <li><a href="#review">Review is a second hat</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 17: URI names the resource; a missing method on a known URI is
+        405 with <code>Allow</code>, not 404.
+        Day 18: POST unknown code is 422; malformed JSON is 400.
+        Day 20: in-process <code>HttpApp.run</code> is the fast contract;
+        Ember is the socket.
+        Day 29: OpenAPI lists allowed operations and does not assert the
+        rest. ADR 1 said implementation must match the spec.
+        Before reading on: if you run the app, copy the JSON it returned,
+        and paste that into <code>assertEquals</code>, what did you just
+        stop checking? If POST is missing from <code>/health</code> in the
+        YAML, which document names 405 — OpenAPI or RFC 9110?
+      </section>
+
+      <h2 id="oracle">The spec is the expected value</h2>
+      <p>
+        Day 9 already wanted a literal from a spec, not from the function
+        under test. Kent Beck’s Canon TDD names the same failure mode:
+        copying the value the code just computed into the expected side
+        “defeats double checking.”<a class="sidenote-ref" href="#sn-beck">1</a>
+        This unit’s independent source is
+        <code>docs/capstone/quotes.openapi.yaml</code> for documented
+        operations, plus RFC 9110 for a method the document simply does
+        not list.
+      </p>
+      <aside class="sidenote" id="sn-beck">
+        Kent Beck,
+        <a href="https://newsletter.kentbeck.com/p/canon-tdd">Canon TDD</a>
+        (2023). Fowler’s
+        <a href="https://martinfowler.com/bliki/TestDrivenDevelopment.html">TDD bliki</a>
+        is the short three-step companion: write a test, make it pass,
+        then optionally refactor.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>assertEquals(body, ranAndCopied)</code>
+    <span>The test now agrees with whatever the code did.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>assertEquals(out, RateOut("EUR", 108))</code>
+    <span>108 is in the catalog. 200 is in the OpenAPI path item.</span>
+  </div>
+  <figcaption>Expected values come from the contract, not from the last run.</figcaption>
+</figure>
+      <p>
+        OpenAPI still does not list POST on <code>/health</code>. That
+        absence is not a 404 in the spec. RFC 9110: the server MUST send
+        405 and an <code>Allow</code> header naming the methods that
+        resource currently supports.<a class="sidenote-ref" href="#sn-405">2</a>
+        ADR 1 already recorded that consequence. Tests for omitted methods
+        assert 405 + <code>Allow</code>; they do not hunt for a 405
+        response object in the YAML.
+      </p>
+      <aside class="sidenote" id="sn-405">
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.405">RFC 9110 §15.5.6</a>
+        and
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#name-allow">§10.2.1 Allow</a>.
+        405 means the method is known but not supported <em>by this target
+        resource</em>.
+      </aside>
+
+      <h2 id="tdd">One failing test, then green</h2>
+      <p>
+        Canon TDD: write a <em>test list</em> (here, the OpenAPI operations
+        plus 405 cases), turn <em>exactly one</em> item into a runnable
+        test, change the system until that test passes, then take the next
+        item. The common screw-up is converting the whole list into
+        concrete tests and only then writing code — Beck calls that
+        rework waiting to happen; this lab’s TDD notes call it horizontal
+        slicing.<a class="sidenote-ref" href="#sn-one">3</a>
+      </p>
+      <aside class="sidenote" id="sn-one">
+        In this repository the suite is verifier-owned, so
+        <code>Day30Suite</code> already exists. Your loop is still one
+        red test at a time: run it, implement that path, then the next.
+        Do not paste Day 20’s routes and rename strings.
+      </aside>
+      <p>
+        http4s still does not need a port for that loop.
+        <code>HttpRoutes</code> is <code>Request =&gt; F[Response]</code>.
+        Construct a <code>Request</code>, <code>app.run</code>, read
+        status and JSON. Ember waits until the contract is green; one live
+        <code>GET /health</code> then proves the same <code>HttpApp</code>
+        is serveable.<a class="sidenote-ref" href="#sn-svc">4</a>
+        MUnit: a <code>test</code> body with no assertion still passes —
+        that is not red.
+      </p>
+      <aside class="sidenote" id="sn-svc">
+        <a href="https://http4s.org/v0.23/docs/service.html">http4s Service</a>
+        and
+        <a href="https://http4s.org/v0.23/docs/dsl.html">DSL</a>:
+        you do not need a server to test a route. This repo pins
+        <code>http4s-dsl</code> / Ember <code>0.23.36</code>.
+        <a href="https://scalameta.org/munit/docs/tests.html">MUnit tests</a>:
+        an empty body does not crash, so it counts as success.
+      </aside>
+<pre><code>test("GET /health returns the injected name"):
+  val req = Request[IO](Method.GET, uri"/health")
+  assertEquals(statusOf(req), Status.Ok)
+  assertEquals(
+    app.run(req).flatMap(_.as[HealthOut]).unsafeRunSync(),
+    HealthOut("quotes")
+  )</code></pre>
+      <p>
+        Green for that slice is one DSL case. <code>rateOf</code> stays
+        <code>Map.get</code>. Persistence is named in the architecture
+        note; it is not wired here — that is
+        <strong>scala-031</strong>.
+      </p>
+<pre><code>case GET -&gt; Root / "health" =&gt;
+  Ok(HealthOut(config.name))
+case _ -&gt; Root / "health" =&gt;
+  MethodNotAllowed(Allow(GET))</code></pre>
+
+      <h2 id="review">Review is a second hat</h2>
+      <p>
+        Beck: do not mix refactoring into making the test pass. Make it
+        run, then make it right. Fowler’s third step is that optional
+        tidy. This lab puts the second hat in
+        <code>/review-exercise</code>: after green, check the seams the
+        architecture named.
+      </p>
+<figure class="trio">
+  <div class="pair-box ok">
+    <code>Core</code>
+    <span><code>rateOf</code> / <code>convertAmount</code> still have no HTTP or JDBC.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>Http</code>
+    <span>Statuses and JSON match the spec. 405 still sends <code>Allow</code>.</span>
+  </div>
+  <div class="pair-box bad">
+    <code>Persistence</code>
+    <span>Not this unit. <code>transact</code> inside <code>rateOf</code> is a layer leak.</span>
+  </div>
+</figure>
+      <p>
+        A green suite that maps POST <code>/health</code> to 404, or that
+        looks up rates with <code>sql"…".query.transact</code>, has the
+        wrong design even if some tests were deleted to stay green.
+        Do not edit the tests to match a weaker contract. Production
+        hardening, docs, and release wait for
+        <strong>scala-032</strong>.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read Kent Beck
+        <a href="https://newsletter.kentbeck.com/p/canon-tdd">Canon TDD</a>
+        through step 3 (one test, make it pass; do not paste actuals into
+        expected). Skim Fowler
+        <a href="https://martinfowler.com/bliki/TestDrivenDevelopment.html">Test Driven Development</a>
+        for the red–green–refactor naming. Read RFC 9110
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.405">405</a>
+        (MUST include <code>Allow</code>). Skim http4s
+        <a href="https://http4s.org/v0.23/docs/service.html">Service</a>
+        — testing with a constructed <code>Request</code>, then Ember only
+        when the contract is green.
+        Stop before Tapir, codegen, Swagger UI, Flyway in routes,
+        <code>munit-cats-effect</code>, and <code>Router</code> / <code>&lt;+&gt;</code>.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Capstone TDD retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A TDD expected value is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">from the OpenAPI spec</button>
+            <button type="button">from the last output</button>
+            <button type="button">from the Scala source</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Beck: pasting the value the code just computed defeats double checking. 108 and 200 come from the catalog and the document." data-bad="Last-run JSON and the implementation are the same side of the check."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">After one test fails:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">make that test pass</button>
+            <button type="button">write leftover tests now</button>
+            <button type="button">drop the failing assertion</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Canon TDD: exactly one concrete test, then change the system until it passes. Deleting assertions is fake green." data-bad="Writing every test first is the horizontal-slicing mistake. Dropping the assertion is not making it pass."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">POST /health when omitted:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">is 405 with Allow</button>
+            <button type="button">is 404 not found</button>
+            <button type="button">is 200 empty JSON</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="OpenAPI is silent. RFC 9110 still wants 405 and Allow: GET on that URI." data-bad="404 would mean the resource is missing. Success would invent a POST the spec never listed."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A green suite still needs:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">a layer ownership review</button>
+            <button type="button">tests rewritten to match</button>
+            <button type="button">put Flyway in rateOf</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Review checks Core vs Http. Persistence waits for scala-031. Do not weaken the tests." data-bad="Editing tests to match weaker code is not review. JDBC inside rateOf is the layer leak."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        The worked example is quotes against
+        <a href="../docs/capstone/quotes.openapi.yaml"><code>quotes.openapi.yaml</code></a>.
+        Contract tests are in-process; one live GET proves Ember can serve
+        the same <code>HttpApp</code>. Run:
+      </p>
+<pre><code>scala-cli test . --test-only 'day30.Day30Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>orderOf</code> and <code>deskRoutes</code> in
+        <a href="../src/main/scala/day30/ExercisesDay30.scala"><code>ExercisesDay30.scala</code></a>
+        (<code>deskApp</code> is already <code>orNotFound</code>).
+        The oracle is
+        <a href="../docs/capstone/desk.openapi.yaml"><code>docs/capstone/desk.openapi.yaml</code></a>
+        plus RFC 9110 for omitted methods. The suite is
+        <a href="../src/test/scala/day30/ExercisesDay30Suite.test.scala"><code>ExercisesDay30Suite</code></a>
+        — do not edit the tests to match a weaker contract.
+        Work one red test at a time. Reuse <code>HealthOut</code>,
+        <code>RateOut</code>, <code>ApiError</code>, and <code>rateOf</code>.
+        Do not alias <code>quotesRoutes</code> or <code>quotesApp</code>.
+        Do not put JDBC, Ciris, logs, or counters inside
+        <code>orderOf</code>. Do not change the quotes files.
+        Then run
+        <code>scala-cli test . --test-only 'day30.ExercisesDay30Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why isn’t 405 in the OpenAPI document?”)
+        over “explain TDD again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0025-capstone-architecture-and-api-specification.html">Capstone architecture and API specification</a>
+          · Cheat sheet:
+          <a href="../reference/capstone-tdd.html">Capstone TDD and reviews</a>
+          · Persistence wiring is the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

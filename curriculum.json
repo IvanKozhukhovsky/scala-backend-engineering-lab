@@ -978,10 +978,31 @@
           "id": "scala-030",
           "sequence": 30,
           "title": "Capstone implementation with TDD and reviews",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0026-capstone-implementation-with-tdd-and-reviews.html"
+            },
+            {
+              "type": "source",
+              "path": "reference/capstone-tdd.html"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day30/ExercisesDay30Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day30/ExercisesDay30.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0025-openapi-silence-uses-rfc-9110.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/34"
         },
         {
