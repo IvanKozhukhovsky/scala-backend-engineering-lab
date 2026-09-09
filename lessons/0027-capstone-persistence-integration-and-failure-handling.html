@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capstone persistence, integration and failure handling</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-031 · Phase 08 · Capstone</p>
+      <h1>Capstone persistence, integration and failure handling</h1>
+      <p class="lede">
+        You can inject a Persistence lookup into Day 30’s routes so cents
+        come from Flyway + <code>transact</code>, map a failed session to
+        503, and keep a missing row as 404 — without putting JDBC inside
+        <code>rateOf</code> or probing the catalog from <code>/health</code>.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Days 22–30 already bought</a></li>
+          <li><a href="#seam">Http asks; Persistence answers</a></li>
+          <li><a href="#503">Failed session is not a miss</a></li>
+          <li><a href="#health">Liveness does not transact</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 22: <code>transact</code> is the JDBC session; <code>rateOf</code>
+        stays <code>Map.get</code>.
+        Day 23: Flyway owns the schema; one <code>transact</code> is one
+        commit.
+        Day 24: H2 checks the program; a Testcontainers URL checks Postgres.
+        Day 28: <code>GET /health</code> is yes/no liveness — not a counter
+        scrape.
+        Day 29: Persistence owns Flyway and <code>transact</code>, not HTTP
+        status codes.
+        Day 30: routes still used the in-memory catalog.
+        Before reading on: if JDBC throws, is that the same question as
+        <code>GET /rates/JPY</code>? If <code>/health</code> calls
+        <code>transact</code>, what does a downed catalog look like to a
+        probe?
+      </section>
+
+      <h2 id="seam">Http asks; Persistence answers</h2>
+      <p>
+        The architecture note already split the jobs. Core still decides
+        <code>InvalidQty</code> / <code>UnknownCode</code> from values.
+        Persistence still runs Flyway then
+        <code>findRate(code).option.transact(xa)</code>.
+        Http still maps status and JSON. The missing wire is a function
+        Http can call without seeing
+        <code>Transactor</code>.<a class="sidenote-ref" href="#sn-tx">1</a>
+      </p>
+      <aside class="sidenote" id="sn-tx">
+        doobie Connecting:
+        <code>transact</code> is
+        <code>ConnectionIO ~&gt; IO</code> — “connect to the database and
+        execute single transaction.”
+        <a href="../reference/repository-layer.html">Day 22</a> already
+        put that inside a repository. This unit passes
+        <code>String =&gt; IO[Option[Int]]</code> into routes.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>rateOf(code) // Map.get
+Ok(RateOut(code, cents))</code>
+    <span>Http owns the catalog. The table is decoration.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>lookup(code).attempt.flatMap {
+  case Right(Some(cents)) =&gt; Ok(RateOut(code, cents))
+}</code>
+    <span>Http owns the status. Cents came from Persistence.</span>
+  </div>
+  <figcaption>A test that injects EUR → 99 must not still see 108 from <code>rateOf</code>.</figcaption>
+</figure>
+      <p>
+        <code>convertAmount</code> therefore takes the
+        <code>Option[Int]</code> the lookup returned. It does not call
+        <code>rateOf</code>. <code>rateOf</code> stays the seed oracle
+        (<code>EUR → 108</code>) so you still know what Flyway +
+        <code>seedRates</code> should store. Fast contract tests inject a
+        memory lookup. One H2 suite migrates, seeds, and runs
+        <code>HttpApp</code>. One Testcontainers GET proves the same path
+        on Postgres — Day 24’s Resource, not a new Docker skill.
+      </p>
+
+      <h2 id="503">Failed session is not a miss</h2>
+      <p>
+        Cats Effect: <code>attempt</code> materializes a sequenced
+        exception into <code>Either[Throwable, A]</code> — the inverse of
+        <code>raiseError</code>.<a class="sidenote-ref" href="#sn-attempt">2</a>
+        Three results, three statuses:
+      </p>
+      <aside class="sidenote" id="sn-attempt">
+        <a href="https://typelevel.org/cats-effect/docs/datatypes/io">Cats Effect IO</a>
+        error handling. Pin remains <code>cats-effect</code> <code>3.6.4</code>.
+        Do not start <code>handleErrorWith</code> retry loops or
+        <code>munit-cats-effect</code> in this unit.
+      </aside>
+<figure class="trio">
+  <div class="pair-box ok">
+    <code>Right(Some(cents))</code>
+    <span>200 and the JSON from the OpenAPI path item.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>Right(None)</code>
+    <span>404 <code>not_found</code> on GET; 422 <code>unknown_code</code> on POST.</span>
+  </div>
+  <div class="pair-box bad">
+    <code>Left(SQLException)</code>
+    <span>Not 404. That would call a downed socket “JPY”.</span>
+  </div>
+</figure>
+      <p>
+        RFC 9110: 503 means the server is <em>currently unable</em> to
+        handle the request, likely after some delay; it MAY send
+        <code>Retry-After</code>. 500 is an <em>unexpected condition</em>
+        inside this process.<a class="sidenote-ref" href="#sn-503">3</a>
+        A failed JDBC session is unavailable catalog, not a surprise bug
+        in <code>convertAmount</code>. Map
+        <code>Left(_)</code> to
+        <code>ServiceUnavailable(ApiError("unavailable"))</code>.
+        OpenAPI stays silent — same move as 405 in Day 30.
+        <a href="../docs/adr/0003-persistence-failure-is-503.md">ADR 3</a>
+        records it.
+      </p>
+      <aside class="sidenote" id="sn-503">
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.503">RFC 9110 §15.6.4</a>
+        and
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.500">§15.6.1</a>.
+        This unit does not require <code>Retry-After</code>.
+        Unhandled exceptions at the Ember edge become 500 with a swallowed
+        body —
+        <a href="https://http4s.org/v0.23/docs/error-handling.html">http4s error handling</a>
+        — so map the failed lookup yourself before the task fails.
+      </aside>
+<pre><code>lookup(code).attempt.flatMap {
+  case Left(_)            => ServiceUnavailable(ApiError("unavailable"))
+  case Right(None)        => NotFound(ApiError("not_found"))
+  case Right(Some(cents)) => Ok(RateOut(code, cents))
+}</code></pre>
+
+      <h2 id="health">Liveness does not transact</h2>
+      <p>
+        Day 28: <code>GET /health</code> answers whether the process can
+        respond. A counter lives on <code>/metrics</code>. If health
+        <code>transact</code>s, a downed catalog looks like a dead JVM.
+        Inject <code>unavailableLookup</code>: health stays 200
+        <code>HealthOut</code>; <code>GET /rates/EUR</code> is 503.
+        Production hardening, docs, and release wait for
+        <strong>scala-032</strong>.
+      </p>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read RFC 9110
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.503">503</a>
+        (currently unable; MAY <code>Retry-After</code>) and skim
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.500">500</a>
+        (unexpected condition). Read Cats Effect
+        <a href="https://typelevel.org/cats-effect/docs/datatypes/io">IO</a>
+        through <code>attempt</code>. Skim doobie
+        <a href="https://typelevel.org/doobie/docs/03-Connecting.html">Connecting</a>
+        for <code>transact</code> as one session. Skim http4s
+        <a href="https://http4s.org/v0.23/docs/error-handling.html">Error Handling</a>
+        — a failed task at the backend is 500 unless you map it.
+        Stop before Tapir, codegen, <code>Retry-After</code> as a required
+        header, circuit breakers, <code>jdbc:tc:</code>, Flyway
+        <code>clean</code>, and putting 503 into the Day 29 YAML.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Capstone persistence retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">GET /rates/JPY with a live catalog is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">404 with not_found JSON</button>
+            <button type="button">503 with unavailable JSON</button>
+            <button type="button">500 with server_error JSON</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="The query succeeded. None is a missing item — Day 17 / Day 29 already named 404." data-bad="503 is a failed session. 500 is an unexpected condition in this process."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">When lookup IO fails:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">503 with unavailable JSON</button>
+            <button type="button">404 with not_found JSON</button>
+            <button type="button">422 with unknown_code JSON</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="RFC 9110 503: currently unable. A downed socket is not JPY and not a POST domain reject." data-bad="404/422 answer ‘this code is absent.’ JDBC never returned a row list."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">GET /health if the catalog is down:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">still returns 200 JSON</button>
+            <button type="button">blocks on a transact</button>
+            <button type="button">maps health to 503</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Liveness is the process. GET /rates/EUR is where 503 belongs." data-bad="If health transacts, a probe cannot tell a dead JVM from a downed database."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Cents for a request come from:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">Persistence then Core math</button>
+            <button type="button">rateOf inside the route</button>
+            <button type="button">transact inside rateOf</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="lookup returns Option[Int]. convertAmount stays pure. JDBC stays in Persistence." data-bad="Map.get in the route ignores the table. transact in rateOf is the layer leak Day 29 named."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        The worked example is quotes:
+        <code>convertAmount</code> takes <code>Option[Int]</code>,
+        <code>quotesRoutes(config, lookup)</code> maps
+        <code>attempt</code>, Flyway + H2 / one live GET prove the table.
+        Run:
+      </p>
+<pre><code>scala-cli test . --test-only 'day31.Day31Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>orderFrom</code>, <code>deskLookup</code>, and
+        <code>deskRoutes</code> in
+        <a href="../src/main/scala/day31/ExercisesDay31.scala"><code>ExercisesDay31.scala</code></a>
+        (<code>deskApp</code> is already <code>orNotFound</code>).
+        Reuse Day 30’s <code>DeskConfig</code>, <code>OrderIn</code> /
+        <code>OrderOut</code>, <code>OrderError</code>,
+        <code>HealthOut</code>, <code>RateOut</code>, <code>ApiError</code>.
+        <code>orderFrom</code> is Core: trim, then InvalidCode / InvalidQty /
+        UnknownCode, using the passed <code>cents</code> — not
+        <code>rateOf</code>.
+        <code>deskLookup(xa)</code> is Persistence:
+        Day 23’s <code>RateRepository.find</code> mapped to
+        <code>Option[Int]</code>.
+        <code>deskRoutes(config, lookup)</code> is Http: same URIs as
+        Day 30 desk, plus 503 <code>unavailable</code> on a failed lookup.
+        <code>GET /health</code> must not call <code>lookup</code>.
+        Work one red test at a time. Do not alias
+        <code>quotesRoutes</code>. Do not put JDBC inside
+        <code>orderFrom</code> / <code>rateOf</code>. Do not use
+        <code>jdbc:tc:</code>. Do not change Day 30 files, the OpenAPI
+        YAML, or ADR 1–2. ADR 3 is the quotes worked example.
+        Then run
+        <code>scala-cli test . --test-only 'day31.ExercisesDay31Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why isn’t a SQLException a 404?”)
+        over “explain persistence again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0026-capstone-implementation-with-tdd-and-reviews.html">Capstone implementation with TDD and reviews</a>
+          · Cheat sheet:
+          <a href="../reference/capstone-persistence.html">Capstone persistence and 503</a>
+          · Production release is the next unit — not this one.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

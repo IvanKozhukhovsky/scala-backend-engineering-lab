@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capstone persistence and 503 cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-031</p>
+      <h1>Capstone persistence, integration and failure handling</h1>
+      <p class="lede">Lookup is injected. None is 404. Failed IO is 503. Health does not transact.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0027-capstone-persistence-integration-and-failure-handling.html">Capstone persistence, integration and failure handling</a>.
+        Docs:
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.503">RFC 9110 503</a>,
+        <a href="https://www.rfc-editor.org/rfc/rfc9110.html#status.500">RFC 9110 500</a>,
+        <a href="https://typelevel.org/cats-effect/docs/datatypes/io">Cats Effect IO</a>
+        (<code>attempt</code>),
+        <a href="https://typelevel.org/doobie/docs/03-Connecting.html">doobie Connecting</a>,
+        <a href="https://http4s.org/v0.23/docs/error-handling.html">http4s Error Handling</a>.
+        Same pins: doobie / Flyway / Testcontainers / http4s from Days 22–30.
+      </p>
+
+      <h2>Seam</h2>
+<pre><code>type RateLookup = String => IO[Option[Int]]
+
+def quotesRoutes(config: QuotesConfig, lookup: RateLookup)
+def quotesLookup(xa: Transactor[IO]): RateLookup</code></pre>
+      <ul>
+        <li>Core: <code>convertAmount(code, qty, minQty, cents: Option[Int])</code>. No JDBC.</li>
+        <li><code>rateOf</code> stays <code>Map.get</code> — seed oracle, not the request path.</li>
+        <li>Memory lookup for fast tests. H2 migrate + seed for the program. One Postgres GET for the engine.</li>
+      </ul>
+
+      <h2>Outcomes</h2>
+<pre><code>lookup(code).attempt.flatMap {
+  case Left(_)            => ServiceUnavailable(ApiError("unavailable"))
+  case Right(None)        => NotFound(ApiError("not_found"))
+  case Right(Some(cents)) => Ok(RateOut(code, cents))
+}</code></pre>
+      <ul>
+        <li>POST unknown code stays 422. GET miss stays 404.</li>
+        <li>OpenAPI is silent on 503.
+          <a href="../docs/adr/0003-persistence-failure-is-503.md">ADR 3</a>.
+          RFC 9110 fills it, as 405 did in
+          <a href="capstone-tdd.html">scala-030</a>.</li>
+        <li><code>Retry-After</code> is optional. Not this unit.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Reuse Day 23 Flyway / <code>RateRepository</code> and Day 24 <code>withQuotesPg</code>.</li>
+        <li>Keep <code>GET /health</code> free of <code>lookup</code>.</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Put <code>transact</code> inside <code>rateOf</code> / <code>orderFrom</code>.</li>
+        <li>Map <code>SQLException</code> to 404 or 422.</li>
+        <li>Call <code>rateOf</code> from the route (inject EUR → 99 and watch for 108).</li>
+        <li>Introduce Tapir, <code>jdbc:tc:</code>, Flyway <code>clean</code>, circuit breakers, or 503 in the Day 29 YAML.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="capstone-tdd.html">Capstone TDD and reviews</a>,
+          <a href="repository-layer.html">PostgreSQL repository layer</a>,
+          <a href="migrations.html">Migrations</a>,
+          <a href="db-integration.html">Database integration</a>,
+          <a href="http-rest.html">HTTP and REST</a>.
+          Next: production hardening, documentation and release.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

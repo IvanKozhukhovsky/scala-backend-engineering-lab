@@ -1009,10 +1009,31 @@
           "id": "scala-031",
           "sequence": 31,
           "title": "Capstone persistence, integration and failure handling",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0027-capstone-persistence-integration-and-failure-handling.html"
+            },
+            {
+              "type": "source",
+              "path": "reference/capstone-persistence.html"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day31/ExercisesDay31Suite.test.scala"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day31/ExercisesDay31.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0026-failed-lookup-is-not-malformed-http.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/36"
         },
         {

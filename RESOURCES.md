@@ -87,7 +87,7 @@
 - [Cats Effect: Getting Started](https://typelevel.org/cats-effect/docs/getting-started)
   Primary install pin (`cats-effect` `3.6.4` in this repo), `IOApp.Simple`, and the REPL `unsafeRunSync` note. Stop before the FizzBuzz fiber demo.
 - [Cats Effect: IO](https://typelevel.org/cats-effect/docs/datatypes/io)
-  Primary narrative: IO as a description, referential transparency vs `Future`, `IO.pure` vs `IO.apply`. Stop before async constructors, error handling as a skill, concurrency, and cancelation.
+  Primary narrative: IO as a description, referential transparency vs `Future`, `IO.pure` vs `IO.apply`. For `scala-014` stop before async constructors, error handling as a skill, concurrency, and cancelation. For `scala-031` read the Error Handling section: `attempt` materializes sequenced exceptions into `Either[Throwable, A]` (inverse of `raiseError`). Stop before retry/backoff loops.
 - [Cats Effect 3 API: IO](https://typelevel.org/cats-effect/api/3.x/cats/effect/IO.html)
   Authoritative wording: pure immutable description; not evaluated until unsafe run / end of the world; not memoized.
 - [Cats Effect: Concepts](https://typelevel.org/cats-effect/docs/concepts)
@@ -119,13 +119,17 @@
 - [http4s: Entity Handling](https://http4s.org/v0.23/docs/entity.html)
   `EntityEncoder` / `EntityDecoder` as the body + media-type bridge. `jsonOf` / `jsonEncoderOf` are listed under JSON.
 - [http4s: Error Handling](https://http4s.org/v0.23/docs/error-handling.html)
-  `MalformedMessageBodyFailure` (syntax) vs `InvalidMessageBodyFailure` (semantics). Unhandled `MessageFailure` reaches the backend as a failed task — map it yourself when running `HttpApp` in-process. Stop before Ember `ErrorAction` middleware.
+  `MalformedMessageBodyFailure` (syntax) vs `InvalidMessageBodyFailure` (semantics). Unhandled `MessageFailure` reaches the backend as a failed task — map it yourself when running `HttpApp` in-process. For `scala-031` the same page is why a failed lookup `IO` must be `attempt`ed in the route: Ember otherwise turns an unhandled exception into 500 with an empty body. Stop before Ember `ErrorAction` middleware.
 - [RFC 9110: HTTP Semantics — Methods](https://www.rfc-editor.org/rfc/rfc9110.html#name-methods)
   Authoritative wording: safe methods (GET/HEAD/OPTIONS/TRACE), idempotent methods (safe + PUT + DELETE), POST is neither; 405 must include `Allow`.
 - [RFC 9110: 400 Bad Request](https://www.rfc-editor.org/rfc/rfc9110.html#status.400)
   Malformed syntax (and similar client errors). Used for broken JSON in `scala-018`.
 - [RFC 9110: 422 Unprocessable Content](https://www.rfc-editor.org/rfc/rfc9110.html#status.422)
   Content type and syntax are correct; the instructions cannot be processed. http4s 0.23.31+ DSL: `UnprocessableContent`.
+- [RFC 9110: 500 Internal Server Error](https://www.rfc-editor.org/rfc/rfc9110.html#status.500)
+  Unexpected condition that prevented fulfilling the request. Contrast with 503 in `scala-031`.
+- [RFC 9110: 503 Service Unavailable](https://www.rfc-editor.org/rfc/rfc9110.html#status.503)
+  The server is currently unable to handle the request (temporary overload or maintenance); MAY send `Retry-After`. Primary wording for `scala-031`: a failed Persistence `IO` is 503 `unavailable`, not 404/422. This unit does not require `Retry-After`.
 - [MDN: HTTP request methods](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods)
   Gentler table of safe / idempotent / cacheable methods. Optional; RFC 9110 is the assigned spec.
 - [MDN: HTTP response status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status)
@@ -291,5 +295,5 @@
 - Scala Steward (or Dependabot `sbt`) is out of scope while this lab’s pins live in Scala CLI `using` directives.
 - slf4j / logback as a `StructuredLogger` backend, otel4s, a live Prometheus scrape, Grafana, Jaeger, Kubernetes `httpGet` probes, histograms, and Compose `healthcheck:` wait for later hardening.
 - Swagger UI, OpenAPI codegen, Tapir, http4s-rho, and OAS 3.2 (`QUERY`, `$self`) wait; `scala-029` renders YAML by hand.
-- Persistence wiring against the capstone architecture is `scala-031`. Production hardening, documentation and release are `scala-032`.
+- Production hardening, documentation and release are `scala-032`.
 - Deployment platform will be selected only when the capstone reaches production-readiness work.
