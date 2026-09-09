@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capstone release cheat sheet</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="reference">
+    <header>
+      <p class="kicker">Reference · scala-032</p>
+      <h1>Production hardening, documentation and release</h1>
+      <p class="lede">SemVer is 0.1.0. The git tag is quotes-v0.1.0. Changelogs are for humans. 0.y.z is not production.</p>
+    </header>
+
+    <div class="reference-body">
+      <p>
+        Lesson:
+        <a href="../lessons/0028-production-hardening-documentation-and-release.html">Production hardening, documentation and release</a>.
+        Docs:
+        <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog 1.1.0</a>,
+        <a href="https://semver.org/spec/v2.0.0.html">SemVer 2.0.0</a>,
+        <a href="https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases">GitHub Releases</a>,
+        <a href="https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes">Generated notes</a>.
+        No new Scala library. Image and SHA pins stay Days 25–28.
+      </p>
+
+      <h2>Names</h2>
+<pre><code>0.1.0           // SemVer = OpenAPI info.version = Day 25 image tag
+quotes:0.1.0    // docker build -t
+quotes-v0.1.0   // git tag in this monorepo (not SemVer)</code></pre>
+      <ul>
+        <li><code>v0.1.0</code> is a tag convention, not a SemVer string.</li>
+        <li><code>0.y.z</code> is initial development. GitHub <code>prerelease: true</code>.</li>
+        <li>Do not bump to <code>1.0.0</code> to look hosted.</li>
+      </ul>
+
+      <h2>Changelog</h2>
+<pre><code>## [Unreleased]
+
+## [0.1.0] - 2026-09-09
+### Added
+### Security</code></pre>
+      <ul>
+        <li>Curated notable changes. Not <code>git log</code>.</li>
+        <li>ISO dates. Omit empty kinds.</li>
+        <li>Service file: <code>docs/capstone/quotes.CHANGELOG.md</code>. Root <code>CHANGELOG.md</code> stays the lab diary.</li>
+      </ul>
+
+      <h2>GitHub Release</h2>
+<pre><code>githubReleaseOf(notes)
+// tag / title / body / prerelease
+// building this does not publish</code></pre>
+      <ul>
+        <li>Based on a git tag. Notes are attached later if needed.</li>
+        <li>Generate release notes lists PRs — still curate.</li>
+      </ul>
+
+      <h2>Honesty</h2>
+      <ul>
+        <li>Fail <code>overclaimsProduction</code> on <code>is a production service</code>, <code>production-ready</code>, <code>deployed to</code>, <code>hosted at</code>.</li>
+        <li><a href="../docs/portfolio-readiness.md">Portfolio readiness</a>: the lab is not a hosted production service.</li>
+      </ul>
+
+      <h2>Do</h2>
+      <ul>
+        <li>Match OpenAPI <code>info.version</code>.</li>
+        <li>Name the Day 28 observed image and Day 27 SHA pins in the notes.</li>
+        <li>List local API examples from the spec (<code>startupOf</code>).</li>
+      </ul>
+
+      <h2>Do not</h2>
+      <ul>
+        <li>Dump <code>git log</code>. Overwrite root <code>CHANGELOG.md</code>.</li>
+        <li>Rewrite Day 25 / Day 26 contract files to “promote” twins.</li>
+        <li>Create a git tag or call the Releases API in this unit.</li>
+        <li>Introduce GHCR, Compose, Cosign, Conventional Commits, or <code>.github/release.yml</code>.</li>
+      </ul>
+
+      <footer class="meta">
+        <p>
+          Prior units:
+          <a href="capstone-persistence.html">Capstone persistence and 503</a>,
+          <a href="security-basics.html">Security basics</a>,
+          <a href="observability.html">Observability</a>,
+          <a href="docker-packaging.html">Docker packaging</a>,
+          <a href="capstone-spec.html">Capstone spec</a>.
+          Last curriculum unit.
+        </p>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

@@ -20,6 +20,6 @@ scala-backend-engineering-lab/
 └── docs/                    engineering and portfolio documentation
 ```
 
-`docs/capstone/` and `docs/adr/` hold the scala-029 HTTP contract and architecture records. scala-030 implements `HttpRoutes` against those documents in `src/main/scala/day30/`. scala-031 wires Persistence (`lookup` + Flyway/`transact`) into those routes in `src/main/scala/day31/` and maps a failed session to 503 (ADR 3). Production hardening is scala-032.
+`docs/capstone/` and `docs/adr/` hold the scala-029 HTTP contract and architecture records. scala-030 implements `HttpRoutes` against those documents in `src/main/scala/day30/`. scala-031 wires Persistence (`lookup` + Flyway/`transact`) into those routes in `src/main/scala/day31/` and maps a failed session to 503 (ADR 3). scala-032 writes Keep a Changelog, a GitHub Release body, and local API examples under `docs/capstone/` (`quotes.CHANGELOG.md`, `quotes-startup.md`) without treating the learning lab as a hosted production service.
 
 The design intentionally separates probabilistic AI behavior from deterministic checks. Cursor may decide how to explain or review a concept, but `scripts/progress.py`, Scala compilation, Scalafmt, MUnit, and CI provide machine-checkable invariants.

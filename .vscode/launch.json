@@ -10,6 +10,16 @@
       "args": [],
       "jvmOptions": [],
       "env": {}
+    },
+    {
+      "type": "scala",
+      "request": "launch",
+      "name": "generateChangelog",
+      "mainClass": "day32.generateChangelog",
+      "buildTarget": "file:/home/ikozh/Documents/my_own_projects/scala_backend_engineering_lab/.scala-build/?id=scala_backend_engineering_lab_dda973b1f6",
+      "args": [],
+      "jvmOptions": [],
+      "env": {}
     }
   ]
 }

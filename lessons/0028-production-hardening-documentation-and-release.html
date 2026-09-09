@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Production hardening, documentation and release</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+  <article class="lesson">
+    <header>
+      <p class="kicker">scala-032 · Phase 08 · Capstone</p>
+      <h1>Production hardening, documentation and release</h1>
+      <p class="lede">
+        You can assemble a Keep a Changelog, a GitHub Release body, and local
+        API examples for quotes <code>0.1.0</code> — matching OpenAPI
+        <code>info.version</code> — without dumping <code>git log</code>,
+        tagging <code>1.0.0</code>, or calling this learning lab a hosted
+        production service.
+      </p>
+    </header>
+
+    <div class="lesson-body">
+      <nav class="toc" aria-label="Lesson contents">
+        <ol>
+          <li><a href="#gap">What Days 25–31 already bought</a></li>
+          <li><a href="#names">Three names, one SemVer</a></li>
+          <li><a href="#changelog">Humans, not git logs</a></li>
+          <li><a href="#github">A tag is not a Release</a></li>
+          <li><a href="#honest">0.1.0 is not production</a></li>
+          <li><a href="#check">Retrieval check</a></li>
+          <li><a href="#practice">Independent practice</a></li>
+        </ol>
+      </nav>
+
+      <section class="retrieve" id="gap">
+        <strong>Retrieve first</strong>
+        Day 25: <code>quotes:0.1.0</code> is a
+        <code>docker build -t</code> name, not a Dockerfile layer.
+        Day 27: a git <em>tag</em> on an Action can move; a 40-hex SHA
+        cannot. Default without <code>USER</code> is root.
+        Day 28: <code>HEALTHCHECK</code> probes
+        <code>GET /health</code> inside the container.
+        Day 29: <code>openapi: 3.1.2</code> is the OAS;
+        <code>info.version</code> is the document (<code>0.1.0</code>).
+        Day 31: a failed lookup is 503, not 404.
+        The root <code>CHANGELOG.md</code> is a dated lab diary.
+        Before reading on: if you <code>git tag v0.1.0</code>, does a
+        stranger get notes? If you paste <code>git log</code> into a
+        changelog, who is that file for? If you bump to
+        <code>1.0.0</code>, what did SemVer say about production?
+      </section>
+
+      <h2 id="names">Three names, one SemVer</h2>
+      <p>
+        Semantic Versioning: a version is
+        <code>MAJOR.MINOR.PATCH</code>. Software using SemVer
+        <em>MUST declare a public API</em> — ours is the Day 29
+        OpenAPI document.<a class="sidenote-ref" href="#sn-semver">1</a>
+        The FAQ is blunt: <code>v1.2.3</code> is
+        <em>not</em> a semantic version. Prefixing
+        <code>v</code> is a git-tag convention. Major version zero
+        (<code>0.y.z</code>) is initial development; anything MAY
+        change; the public API SHOULD NOT be considered stable.
+      </p>
+      <aside class="sidenote" id="sn-semver">
+        <a href="https://semver.org/spec/v2.0.0.html">SemVer 2.0.0</a>.
+        Start initial development at <code>0.1.0</code>. Once a
+        versioned package is released, its contents MUST NOT be
+        modified — ship a new version instead. Stop before
+        pre-release identifiers and build metadata as skills.
+      </aside>
+<figure class="trio">
+  <div class="pair-box ok">
+    <code>0.1.0</code>
+    <span>SemVer. Same string as OpenAPI <code>info.version</code> and the Day 25 image tag.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>quotes:0.1.0</code>
+    <span>Docker image ref. Day 25 already named it.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>quotes-v0.1.0</code>
+    <span>Git tag in this monorepo. Not SemVer; <code>v0.1.0</code> would collide with desk.</span>
+  </div>
+</figure>
+      <p>
+        Runtime already owns the hardened image: Day 27
+        <code>USER 1000</code>, Day 28
+        <code>HEALTHCHECK</code> on loopback
+        <code>/health</code>, Day 27 SHA-pinned workflow twin.
+        This unit does not rewrite
+        <code>packaging/quotes/Dockerfile</code> or live
+        <code>ci.yml</code> — those stay Day 25 / Day 26 contracts.
+        You <em>name</em> the observed image in the notes.
+      </p>
+
+      <h2 id="changelog">Humans, not git logs</h2>
+      <p>
+        Keep a Changelog: a changelog is a curated, chronologically
+        ordered list of <em>notable</em> changes for each version.
+        Changelogs are for humans, not machines. Do not dump git
+        logs — merge commits and “fix typo” lines are a step in the
+        source, not a noteworthy difference for a
+        caller.<a class="sidenote-ref" href="#sn-kac">2</a>
+        Group by type: Added, Changed, Deprecated, Removed, Fixed,
+        Security. Omit empty sections. Dates are ISO 8601
+        (<code>2026-09-09</code>). Keep an
+        <code>[Unreleased]</code> section at the top.
+      </p>
+      <aside class="sidenote" id="sn-kac">
+        <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog 1.1.0</a>.
+        The file should be <code>CHANGELOG.md</code>. GitHub Releases
+        are a non-portable extra; keep the markdown in the repo.
+        Stop before yanked-release markup as a required skill.
+      </aside>
+<figure class="pair">
+  <div class="pair-box bad">
+    <code>2026-08-24 — add github_board.py
+Merge pull request #12</code>
+    <span>A git log. The lab diary in root <code>CHANGELOG.md</code> is that shape. Leave it.</span>
+  </div>
+  <div class="pair-box ok">
+    <code>## [0.1.0] - 2026-09-09
+### Added
+- HTTP surface from OpenAPI 3.1.2 …</code>
+    <span>A human changelog. Tests compare <code>docs/capstone/quotes.CHANGELOG.md</code> to <code>changelogOf</code>.</span>
+  </div>
+  <figcaption>The lab diary and the service changelog are different files. Do not overwrite the root diary.</figcaption>
+</figure>
+
+      <h2 id="github">A tag is not a Release</h2>
+      <p>
+        GitHub: releases are deployable software iterations you
+        package with <em>release notes</em> and optional binaries.
+        They are <em>based on Git tags</em>. A tag date may differ
+        from a release date — you can tag today and write notes
+        later.<a class="sidenote-ref" href="#sn-rel">3</a>
+        Automatically generated notes list merged pull requests.
+        GitHub’s own wizard says: check that they include all
+        <em>and only</em> what you want. That list is a draft, not
+        Keep a Changelog.
+      </p>
+      <aside class="sidenote" id="sn-rel">
+        <a href="https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases">About releases</a>
+        and
+        <a href="https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes">Automatically generated release notes</a>.
+        The pre-release checkbox marks “not ready for production.”
+        This unit builds <code>githubReleaseOf</code> as a string.
+        It does not call the Releases API or create a tag.
+      </aside>
+<pre><code>githubReleaseOf(quotesNotes)
+// tag:        quotes-v0.1.0
+// title:      quotes 0.1.0
+// prerelease: true          // 0.y.z
+// body:       the 0.1.0 section, not git log</code></pre>
+      <p>
+        Portfolio Level 3 also wants API examples a stranger could
+        follow. <code>startupOf</code> lists
+        <code>GET /health</code>, a known code, a miss, and one POST
+        — statuses from the OpenAPI document. Building that markdown
+        does not <code>docker run</code>.
+      </p>
+
+      <h2 id="honest">0.1.0 is not production</h2>
+      <p>
+        SemVer FAQ: if your software is being used in production, it
+        should probably already be <code>1.0.0</code>. The
+        contrapositive is the honesty rule:
+        <code>0.1.0</code> is initial development.
+        GitHub’s pre-release flag matches.
+        <a href="../docs/portfolio-readiness.md">Portfolio readiness</a>
+        is explicit: describe the capstone outcome; do not claim the
+        lesson repository itself is a production service.
+        A sentence that says
+        <code>is a production service</code>,
+        <code>production-ready</code>,
+        <code>deployed to</code>, or
+        <code>hosted at</code>
+        fails <code>overclaimsProduction</code>.
+      </p>
+<pre><code>This repository remains a learning lab. quotes 0.1.0
+is initial development, not a hosted production service.</code></pre>
+
+      <div class="source-box" id="primary-source">
+        <strong>Primary source</strong>
+        Read Keep a Changelog
+        <a href="https://keepachangelog.com/en/1.1.0/">1.1.0</a>
+        through Guiding Principles, Types of changes, and “What
+        about GitHub Releases?”. Read SemVer
+        <a href="https://semver.org/spec/v2.0.0.html">2.0.0</a>
+        summary plus the FAQ on <code>v1.2.3</code>,
+        <code>0.y.z</code>, and when to ship <code>1.0.0</code>.
+        Read GitHub
+        <a href="https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases">About releases</a>
+        and skim
+        <a href="https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes">Automatically generated release notes</a>
+        — Generate is a draft. Stop before GHCR publishing, Compose,
+        Cosign, Conventional Commits, <code>.github/release.yml</code>,
+        and rewriting Day 25 / Day 26 files.
+      </div>
+
+      <h2 id="check">Retrieval check</h2>
+      <p>Answers are shuffled. Each choice is four words.</p>
+      <section class="quiz" data-quiz aria-label="Capstone release retrieval check">
+        <p class="quiz-score" aria-live="polite"></p>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">A GitHub Release is based on:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">a git tag pointer</button>
+            <button type="button">a git log dump</button>
+            <button type="button">a Docker Hub push</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="GitHub: releases are based on Git tags. Notes are attached; they are not the tag and not a registry push." data-bad="A tag names a commit. git log is not a changelog. This unit does not docker push."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">Keep a Changelog is written for:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">humans not git logs</button>
+            <button type="button">machines scraping commit SHAs</button>
+            <button type="button">auto generated PR lists</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="Changelogs are for humans. GitHub’s generated PR list is a draft you still curate." data-bad="Commit titles document a step in the source. Notable differences are curated."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">The SemVer string for this release is:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">0.1.0 without prefix</button>
+            <button type="button">v0.1.0 as SemVer</button>
+            <button type="button">3.1.2 document field</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="SemVer FAQ: v1.2.3 is not a semantic version. 3.1.2 is the OAS field from Day 29." data-bad="The git tag is quotes-v0.1.0. openapi: 3.1.2 names the specification, not the service."></p>
+        </article>
+
+        <article class="quiz-item">
+          <p class="quiz-prompt">GitHub pre-release for 0.1.0:</p>
+          <div class="quiz-choices">
+            <button type="button" data-correct="true">marks initial development only</button>
+            <button type="button">claims hosted production ready</button>
+            <button type="button">replaces Keep a Changelog</button>
+          </div>
+          <p class="quiz-feedback" hidden data-ok="0.y.z is initial development. SemVer: production would already be 1.0.0. Keep the markdown in the repo." data-bad="The pre-release checkbox means not ready for production. GitHub Releases do not replace CHANGELOG.md."></p>
+        </article>
+      </section>
+
+      <h2 id="practice">Independent practice</h2>
+      <p>
+        The worked example is quotes:
+        <code>quotesNotes</code> / <code>changelogOf</code> /
+        <code>githubReleaseOf</code> / <code>quotesStartup</code>.
+        Version matches OpenAPI and the Day 25 image tag.
+        Run:
+      </p>
+<pre><code>scala-cli test . --test-only 'day32.Day32Suite'</code></pre>
+      <div class="practice">
+        <strong>Your exercise — do not ask for a complete solution yet</strong>
+        Implement <code>deskNotes</code> and <code>deskStartup</code>
+        in
+        <a href="../src/main/scala/day32/ExercisesDay32.scala"><code>ExercisesDay32.scala</code></a>.
+        Then write
+        <code>docs/capstone/desk.CHANGELOG.md</code> and
+        <code>docs/capstone/desk-startup.md</code> so they equal
+        <code>changelogOf(deskNotes)</code> and
+        <code>startupOf(deskStartup)</code> exactly.
+        Reuse <code>deskOpenApi.version</code> and
+        <code>deskObserved</code>. Paths are
+        <code>/health</code>, <code>/orders/{code}</code>,
+        <code>/orders</code> — not <code>/convert</code>.
+        Tag name is <code>desk-v0.1.0</code>. Honest sentence names
+        <em>desk</em>. Do not alias <code>quotesNotes</code>.
+        Do not dump <code>git log</code>. Do not claim a production
+        service. Do not rewrite Day 25 / Day 26 files or root
+        <code>CHANGELOG.md</code>. Do not create a git tag.
+        Then run
+        <code>scala-cli test . --test-only 'day32.ExercisesDay32Suite'</code>
+        and <code>/review-exercise</code>.
+      </div>
+
+      <div class="ask-tutor">
+        <strong>Ask the tutor</strong>
+        This page is the lesson. If a line or a quiz item is unclear, ask here.
+        Prefer a specific question (“why isn’t v0.1.0 SemVer?”)
+        over “explain release again”.
+      </div>
+
+      <footer class="meta">
+        <p>
+          Previous:
+          <a href="0027-capstone-persistence-integration-and-failure-handling.html">Capstone persistence, integration and failure handling</a>
+          · Cheat sheet:
+          <a href="../reference/capstone-release.html">Capstone release</a>
+          · This is the last curriculum unit.
+        </p>
+      </footer>
+    </div>
+  </article>
+  <script src="../assets/quiz.js"></script>
+</body>
+</html>

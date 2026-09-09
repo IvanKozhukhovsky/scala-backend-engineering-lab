@@ -1040,10 +1040,35 @@
           "id": "scala-032",
           "sequence": 32,
           "title": "Production hardening, documentation and release",
-          "lessonStatus": "planned",
-          "exerciseStatus": "notStarted",
-          "verificationStatus": "notStarted",
-          "evidence": [],
+          "lessonStatus": "completed",
+          "exerciseStatus": "completed",
+          "verificationStatus": "verified",
+          "evidence": [
+            {
+              "type": "source",
+              "path": "lessons/0028-production-hardening-documentation-and-release.html"
+            },
+            {
+              "type": "source",
+              "path": "reference/capstone-release.html"
+            },
+            {
+              "type": "review",
+              "path": "src/main/scala/day32/ExercisesDay32.scala"
+            },
+            {
+              "type": "test",
+              "path": "src/test/scala/day32/ExercisesDay32Suite.test.scala"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0027-scala-cli-inputs-are-the-project.md"
+            },
+            {
+              "type": "learningRecord",
+              "path": "learning-records/0028-a-githubrelease-is-not-a-git-tag.md"
+            }
+          ],
           "githubIssue": "https://github.com/IvanKozhukhovsky/scala-backend-engineering-lab/issues/35"
         }
       ]

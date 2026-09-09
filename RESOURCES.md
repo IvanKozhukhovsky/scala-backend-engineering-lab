@@ -278,6 +278,14 @@
   Origin server MUST generate `Allow` on 405. Used in `scala-030` for methods omitted from the OpenAPI path item (the document stays silent; the service does not).
 - [RFC 9110: Allow](https://www.rfc-editor.org/rfc/rfc9110.html#name-allow)
   The header lists methods currently supported by the target resource.
+- [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
+  Primary wording for `scala-032`: changelogs are for humans; do not dump git logs; group Added/Changed/Deprecated/Removed/Fixed/Security; ISO dates; `[Unreleased]`; omit empty sections. GitHub Releases are a non-portable extra — keep `CHANGELOG.md` in the repo. Stop before yanked-release markup as a required skill.
+- [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)
+  Primary wording: `MAJOR.MINOR.PATCH`; MUST declare a public API (here: OpenAPI `info.version`). FAQ: `v1.2.3` is not SemVer (the `v` is a git-tag convention); `0.y.z` is initial development; production use should already be `1.0.0`. Stop before pre-release identifiers and build metadata as skills.
+- [GitHub: About releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)
+  Releases are deployable iterations based on Git tags, with notes and optional binaries. Tag date may differ from release date. This unit builds the notes as a string; it does not call the Releases API.
+- [GitHub: Automatically generated release notes](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes)
+  Generate lists merged PRs; check they include all and only what you want. Pre-release marks “not ready for production.” Stop before `.github/release.yml` categories as a skill.
 
 ## Wisdom
 
@@ -295,5 +303,5 @@
 - Scala Steward (or Dependabot `sbt`) is out of scope while this lab’s pins live in Scala CLI `using` directives.
 - slf4j / logback as a `StructuredLogger` backend, otel4s, a live Prometheus scrape, Grafana, Jaeger, Kubernetes `httpGet` probes, histograms, and Compose `healthcheck:` wait for later hardening.
 - Swagger UI, OpenAPI codegen, Tapir, http4s-rho, and OAS 3.2 (`QUERY`, `$self`) wait; `scala-029` renders YAML by hand.
-- Production hardening, documentation and release are `scala-032`.
-- Deployment platform will be selected only when the capstone reaches production-readiness work.
+- Publishing images (GHCR), Docker Compose stacks, Cosign, Conventional Commits, `.github/release.yml`, and creating a live git tag / GitHub Release wait; `scala-032` writes Keep a Changelog and a Release *body* as strings.
+- Deployment platform will be selected only when a later unit needs a hosted environment. `0.1.0` stays initial development.
