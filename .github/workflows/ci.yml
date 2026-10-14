@@ -22,7 +22,7 @@ jobs:
         uses: coursier/cache-action@v8
 
       - name: Set up Scala CLI
-        uses: VirtusLab/scala-cli-setup@v1.16.0
+        uses: VirtusLab/scala-cli-setup@v1.18.0
         with:
           scala-cli-version: "1.16.0"
 
